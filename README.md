@@ -52,15 +52,47 @@ mise run ci
 workspace tests, and reports coverage. The installed pre-push hook runs the
 same checks plus mutation testing for changed Rust files.
 
-## Proposed evaluation work
+## Local release preparation
 
-A provider-neutral comparison mechanism for model and harness behavior is
-captured as a proposal in
-[docs/ideas/model-behavior-evaluation.md](docs/ideas/model-behavior-evaluation.md).
-It is not part of the runtime or public CLI yet.
+The repository can prepare and verify a macOS arm64 release bundle locally
+without publishing it:
+
+```bash
+mise run release:test
+mise run release:prepare -- 0.1.0
+mise run release:check -- 0.1.0
+```
+
+The generated bundle under `dist/v0.1.0/` contains the binary and MIT license
+archive, its SHA-256, a release manifest, and a rendered Homebrew formula.
+`dist/` is ignored and is never a source of truth.
+
+Before any public release, run the read-only source gate:
+
+```bash
+mise run release:preflight -- 0.1.0
+```
+
+It fails closed unless the version matches, the checkout is clean and tagged,
+the host is macOS arm64, and distribution terms have been selected. Passing the
+gate does not publish, tag, install, or update anything.
+
+## Design documents
+
+- [Native-first decision](docs/decisions/0001-keep-goalrail-native-first.md)
+  records why Goalrail begins with a read-only adapter over supported Codex
+  capabilities.
+- [Agent-first lifecycle decision](docs/decisions/0002-make-lifecycle-agent-first.md)
+  defines the bounded Homebrew protocol for agent-operated installation,
+  update, and removal.
+- [Model behavior evaluation proposal](docs/ideas/model-behavior-evaluation.md)
+  captures a possible provider-neutral comparison mechanism. It is not part of
+  the runtime or public CLI yet.
+- [Historical v0 candidate](docs/history/inspect-codex-v0-candidate.md) preserves
+  the original pre-implementation contract and explicitly lists where the
+  shipped behavior differs.
 
 ## Status and license
 
-Goalrail is experimental and has no stability guarantee. No software license
-has been selected yet; public visibility does not grant permission to reuse,
-modify, or redistribute the code.
+Goalrail is experimental and has no stability guarantee. It is available under
+the [MIT License](LICENSE).

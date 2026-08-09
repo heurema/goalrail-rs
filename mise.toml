@@ -34,6 +34,22 @@ run = [
   { task = "coverage" },
 ]
 
+[tasks."release:prepare"]
+description = "Build local macOS arm64 release artifacts"
+run = "./scripts/prepare-release.sh"
+
+[tasks."release:check"]
+description = "Verify local release artifacts and Homebrew formula"
+run = "./scripts/check-release.sh"
+
+[tasks."release:preflight"]
+description = "Check public release source prerequisites without publishing"
+run = "./scripts/release-preflight.sh"
+
+[tasks."release:test"]
+description = "Exercise local release packaging in a temporary directory"
+run = "./scripts/test-release-tooling.sh"
+
 [tasks."mutants:full"]
 description = "Run the full mutation suite for deep CI"
 run = "cargo mutants --workspace --output target/mutants-full"

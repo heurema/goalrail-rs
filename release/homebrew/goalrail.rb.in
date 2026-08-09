@@ -1,0 +1,21 @@
+# frozen_string_literal: true
+
+class Goalrail < Formula
+  desc "Evidence-backed inspection of coding-agent environments"
+  homepage "https://github.com/heurema/goalrail-rs"
+  license "MIT"
+  version "@@VERSION@@"
+  url "@@URL@@"
+  sha256 "@@SHA256@@"
+
+  depends_on :macos
+  depends_on arch: :arm64
+
+  def install
+    bin.install "gr"
+  end
+
+  test do
+    assert_match "gr #{version}", shell_output("#{bin}/gr --version")
+  end
+end

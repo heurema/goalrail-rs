@@ -52,6 +52,13 @@ mise run ci
 workspace tests, and reports coverage. The installed pre-push hook runs the
 same checks plus mutation testing for changed Rust files.
 
+## Proposed evaluation work
+
+A provider-neutral comparison mechanism for model and harness behavior is
+captured as a proposal in
+[docs/ideas/model-behavior-evaluation.md](docs/ideas/model-behavior-evaluation.md).
+It is not part of the runtime or public CLI yet.
+
 ## Status and license
 
 Goalrail is experimental and has no stability guarantee. No software license

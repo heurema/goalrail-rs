@@ -45,12 +45,12 @@
             <button
               class="copy-button"
               type="button"
-              data-copy-url="https://goalrail.dev"
-              aria-label="Copy link for your agent"
+              data-copy-prompt="agent-prompt"
+              aria-label="Copy prompt for your agent"
               aria-live="polite"
             >
-              <span class="copy-button__idle">Copy link for your agent</span>
-              <span class="copy-button__done" aria-hidden="true">Link copied</span>
+              <span class="copy-button__idle">Copy prompt for your agent</span>
+              <span class="copy-button__done" aria-hidden="true">Prompt copied</span>
             </button>
             <a
               class="github-link"
@@ -100,6 +100,21 @@
           rel="noreferrer"
         >View main activity</a>
       </footer>
+
+      <template id="agent-prompt">
+Set up Goalrail in this development environment and use it to inspect Codex.
+
+Use only the canonical instructions at https://goalrail.dev/install.md.
+
+First run the documented read-only preflight. Then tell me:
+- whether this host is supported;
+- what is already installed;
+- the exact state-changing command you propose.
+
+Ask for my explicit approval before installing or updating anything. Do not install Homebrew, use curl | sh, compile with Cargo, or choose another fallback.
+
+After approval, follow the documented Homebrew path, verify package ownership and version, run `gr inspect codex --json`, and return the installation evidence and inspection verdict. Stop and report BLOCKED or INCOMPLETE when required evidence is missing. Do not change unrelated configuration.
+      </template>
     </main>
   </body>
 </html>

@@ -114,14 +114,17 @@ function playHandoff() {
   animationFrame = requestAnimationFrame(step);
 }
 
-async function copyAgentLink() {
-  const url = copyButton.dataset.copyUrl || window.location.href;
+async function copyAgentPrompt() {
+  const templateId = copyButton.dataset.copyPrompt;
+  const promptTemplate = document.querySelector(`#${templateId}`);
+  const prompt = promptTemplate?.content.textContent.trim();
+  if (!prompt) return;
 
   try {
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(prompt);
   } catch {
     const input = document.createElement("textarea");
-    input.value = url;
+    input.value = prompt;
     input.setAttribute("readonly", "");
     input.style.position = "fixed";
     input.style.opacity = "0";
@@ -132,11 +135,11 @@ async function copyAgentLink() {
   }
 
   copyButton.classList.add("is-copied");
-  copyButton.setAttribute("aria-label", "Link copied");
+  copyButton.setAttribute("aria-label", "Prompt copied");
   playHandoff();
   window.setTimeout(() => {
     copyButton.classList.remove("is-copied");
-    copyButton.setAttribute("aria-label", "Copy link for your agent");
+    copyButton.setAttribute("aria-label", "Copy prompt for your agent");
   }, 1800);
 }
 
@@ -190,7 +193,7 @@ async function loadRepositoryActivity() {
   }
 }
 
-copyButton.addEventListener("click", copyAgentLink);
+copyButton.addEventListener("click", copyAgentPrompt);
 handoff.addEventListener("mouseenter", playHandoff);
 handoff.addEventListener("focus", playHandoff);
 reduceMotion.addEventListener("change", () => {

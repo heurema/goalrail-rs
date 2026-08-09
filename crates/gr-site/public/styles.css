@@ -44,9 +44,9 @@ a {
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: clamp(3rem, 7vh, 5.5rem);
-  width: min(100%, 1440px);
+  width: 100%;
   min-height: 100svh;
-  margin: 0 auto;
+  margin: 0;
   padding:
     max(2rem, env(safe-area-inset-top))
     max(1.25rem, env(safe-area-inset-right))
@@ -69,7 +69,7 @@ a {
 .wordmark,
 .repository-status,
 .hero-body {
-  width: min(100%, 73.5rem);
+  width: min(100%, 88rem);
   margin-inline: auto;
 }
 

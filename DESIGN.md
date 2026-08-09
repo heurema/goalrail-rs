@@ -45,7 +45,8 @@ screens. Body copy stays at 18–21px with a short readable measure.
 ## Components
 
 - Wordmark: coral signal dot plus Goalrail.
-- Primary action: solid coral button with inline copied confirmation.
+- Primary action: solid coral button that copies a complete, authority-bounded
+  setup and inspection prompt, with inline confirmation.
 - Secondary action: quiet GitHub text link.
 - Handoff: SVG path, moving signal, midpoint label, returned-evidence check.
 - Repository status: one concise sentence plus latest-main activity.

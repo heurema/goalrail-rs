@@ -65,7 +65,7 @@ jobs:
           esac
 
           shell="$(curl -fsS http://localhost:8080/)"
-          for marker in '<title>Goalrail' 'name="description"' 'href="./install.md"' 'data-motion-module="./gr_site.wasm"'; do
+          for marker in '<title>Goalrail' 'name="description"' 'href="./install.md"' 'data-motion-module="./gr_site.wasm"' 'Copy prompt for your agent' 'Set up Goalrail in this development environment'; do
             case "${shell}" in
               *"${marker}"*) ;;
               *) echo "served page is missing ${marker}" >&2; exit 1 ;;

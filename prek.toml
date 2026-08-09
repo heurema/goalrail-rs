@@ -1,0 +1,30 @@
+minimum_prek_version = "0.4.12"
+default_install_hook_types = ["pre-push"]
+
+[priorities]
+checks = 0
+mutants = 10
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "goalrail-ci"
+name = "Goalrail local CI"
+entry = "mise run ci"
+language = "system"
+pass_filenames = false
+always_run = true
+stages = ["pre-push"]
+priority = "checks"
+
+[[repos.hooks]]
+id = "goalrail-mutants"
+name = "Goalrail mutations for changed Rust files"
+entry = "mise exec -- cargo mutants --output target/mutants --baseline skip --file"
+language = "system"
+files = "\\.rs$"
+pass_filenames = 1
+require_serial = true
+stages = ["pre-push"]
+priority = "mutants"

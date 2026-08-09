@@ -1,0 +1,39 @@
+min_version = "2025.8.11"
+
+[tools]
+rust = "1.97.1"
+prek = "0.4.12"
+"cargo:cargo-llvm-cov" = "0.8.7"
+"cargo:cargo-mutants" = "27.1.0"
+
+[tasks.setup]
+description = "Install pinned tools and the pre-push hook"
+run = [
+  "mise install",
+  "rustup component add llvm-tools-preview",
+  "prek install",
+]
+
+[tasks.fmt]
+description = "Check Rust formatting"
+run = "cargo fmt --all -- --check"
+
+[tasks.lint]
+description = "Run Clippy with warnings denied"
+run = "cargo clippy --workspace --all-targets -- -D warnings"
+
+[tasks.coverage]
+description = "Run tests and report workspace coverage"
+run = "cargo llvm-cov --workspace --summary-only"
+
+[tasks.ci]
+description = "Run the local CI checks"
+run = [
+  { task = "fmt" },
+  { task = "lint" },
+  { task = "coverage" },
+]
+
+[tasks."mutants:full"]
+description = "Run the full mutation suite for deep CI"
+run = "cargo mutants --workspace --output target/mutants-full"

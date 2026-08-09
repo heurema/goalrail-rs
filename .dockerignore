@@ -1,0 +1,8 @@
+/target/
+/dist/
+/output/
+/.git/
+/.github/
+/.idea/
+.DS_Store
+*.log

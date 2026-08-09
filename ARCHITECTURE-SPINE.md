@@ -18,6 +18,7 @@ flowchart LR
     CLI["gr CLI adapter"] --> Facade["gr-inspect-codex facade"]
     Facade --> Probes["Codex probes and parsers"]
     Facade --> Report["Outcome and report synthesis"]
+    Browser["static site"] --> Motion["gr-site WebAssembly motion"]
 ```
 
 ## Invariants and rules
@@ -56,6 +57,15 @@ flowchart LR
   stable input/output types. Low-level implementation types remain private or
   `pub(crate)` unless a separate consumer justifies exporting them.
 
+### AD-5 — Keep the public site progressively enhanced
+
+- **Binds:** the `gr-site` crate and its static public files.
+- **Prevents:** repository truth, installation guidance, or core content from
+  becoming invisible to agents, crawlers, or browsers without WebAssembly.
+- **Rule:** semantic HTML and checked-in status data own the complete public
+  message. `gr-site` may enhance motion only, must have a browser fallback, and
+  must not depend on `gr` or `gr-inspect-codex`.
+
 ## Current conformance
 
 - AD-1: `gr` parses the command, invokes `inspect_codex`, renders the opaque
@@ -84,5 +94,6 @@ architecture check when another CLI use case makes manual review ambiguous.
 - **Rejected:** `AGENTS.md` would mix durable architecture with operating
   instructions; a full workflow would introduce premature files and tools.
 - **Rollback:** delete this file; it has no runtime or tooling dependency.
-- **Revisit:** when a third owned crate is introduced, a public contract
-  changes, or a rule cannot be enforced with the compiler and existing tests.
+- **Revisit:** when a fourth owned crate is introduced, the site needs runtime
+  application data, a public contract changes, or a rule cannot be enforced
+  with the compiler and existing tests.

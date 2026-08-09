@@ -1,0 +1,103 @@
+name: verify and publish site
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/heurema/goalrail-rs
+
+jobs:
+  verify:
+    name: build and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the site image
+        run: docker build -t "${IMAGE}:ci" .
+      - name: Serve and verify the public artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name goalrail-site-ci -p 8080:80 "${IMAGE}:ci"
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://localhost:8080/; then
+              break
+            fi
+            if [ "${attempt}" -eq 30 ]; then
+              docker logs goalrail-site-ci
+              exit 1
+            fi
+            sleep 1
+          done
+
+          check() {
+            local path="$1" expected="$2"
+            local actual
+            actual="$(curl -sS -o /dev/null -w '%{http_code}' "http://localhost:8080${path}")"
+            test "${actual}" = "${expected}"
+          }
+
+          check / 200
+          check /styles.css 200
+          check /site.js 200
+          check /status.json 200
+          check /install.md 200
+          check /llms.txt 200
+          check /gr_site.wasm 200
+          check /missing 404
+
+          type="$(curl -sS -o /dev/null -w '%{content_type}' http://localhost:8080/gr_site.wasm)"
+          case "${type}" in
+            application/wasm*) ;;
+            *) echo "gr_site.wasm served as ${type}" >&2; exit 1 ;;
+          esac
+
+          install_type="$(curl -sS -o /dev/null -w '%{content_type}' http://localhost:8080/install.md)"
+          case "${install_type}" in
+            text/markdown*) ;;
+            *) echo "install.md served as ${install_type}" >&2; exit 1 ;;
+          esac
+
+          shell="$(curl -fsS http://localhost:8080/)"
+          for marker in '<title>Goalrail' 'name="description"' 'href="./install.md"' 'data-motion-module="./gr_site.wasm"'; do
+            case "${shell}" in
+              *"${marker}"*) ;;
+              *) echo "served page is missing ${marker}" >&2; exit 1 ;;
+            esac
+          done
+      - if: always()
+        run: docker rm -f goalrail-site-ci || true
+
+  publish:
+    name: publish the image
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: tag
+        shell: bash
+        run: echo "value=dev-$(git rev-parse --short=7 HEAD)-$(date -u +%Y%m%d%H%M%S)" >>"${GITHUB_OUTPUT}"
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ steps.tag.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - run: echo "Published ${IMAGE}:${{ steps.tag.outputs.value }}" >>"${GITHUB_STEP_SUMMARY}"

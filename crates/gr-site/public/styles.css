@@ -1,0 +1,399 @@
+:root {
+  color-scheme: dark;
+  --color-deep: oklch(16.05% 0.0063 285.67);
+  --color-bg: oklch(20.34% 0.0317 318.9);
+  --color-footer: oklch(22.65% 0.0379 320.36);
+  --color-ink: oklch(95.75% 0.0117 342.64);
+  --color-body: oklch(71.27% 0.0352 343.28);
+  --color-muted: oklch(63.98% 0.0352 342.25);
+  --color-path: oklch(29.5% 0.0372 344.38);
+  --color-accent: oklch(71.48% 0.1297 34.34);
+  --color-accent-hover: oklch(79% 0.11 34.34);
+  --color-button-ink: oklch(20.65% 0.0372 349.52);
+  font-family: "Helvetica Neue", "Avenir Next", Avenir, Arial, sans-serif;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--color-deep);
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--color-deep);
+  color: var(--color-ink);
+}
+
+button,
+a {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.hero {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(3rem, 7vh, 5.5rem);
+  width: min(100%, 1440px);
+  min-height: 100svh;
+  margin: 0 auto;
+  padding:
+    max(2rem, env(safe-area-inset-top))
+    max(1.25rem, env(safe-area-inset-right))
+    max(3.5rem, calc(env(safe-area-inset-bottom) + 2.25rem))
+    max(1.25rem, env(safe-area-inset-left));
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.hero::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1.5rem;
+  background: var(--color-footer);
+  content: "";
+}
+
+.wordmark,
+.repository-status,
+.hero-body {
+  width: min(100%, 73.5rem);
+  margin-inline: auto;
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.signal-dot {
+  flex: 0 0 auto;
+  width: 0.56rem;
+  height: 0.56rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.signal-dot--small {
+  width: 0.44rem;
+  height: 0.44rem;
+}
+
+.hero-body {
+  display: grid;
+  grid-template-columns: minmax(0, 38.75rem) minmax(20rem, 26.25rem);
+  gap: clamp(3rem, 8vw, 9rem);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-copy {
+  min-width: 0;
+}
+
+h1 {
+  max-width: 100%;
+  margin: 0;
+  font-size: clamp(3.25rem, 5.2vw, 5rem);
+  font-weight: 600;
+  line-height: 1.03;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.hero-line {
+  display: block;
+}
+
+.hero-line--accent {
+  color: var(--color-accent);
+}
+
+.hero-copy > p {
+  max-width: 31rem;
+  margin: clamp(1.5rem, 3vw, 2rem) 0 0;
+  color: var(--color-body);
+  font-size: clamp(1.125rem, 1.55vw, 1.3125rem);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem clamp(1.5rem, 3vw, 2.125rem);
+  margin-top: clamp(2rem, 5vw, 3.375rem);
+}
+
+.copy-button {
+  position: relative;
+  display: grid;
+  min-height: 3.5rem;
+  padding: 1rem 1.875rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: var(--color-accent);
+  color: var(--color-button-ink);
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  transition:
+    background-color 160ms ease,
+    transform 120ms ease;
+}
+
+.copy-button > span {
+  grid-area: 1 / 1;
+  align-self: center;
+  transition: opacity 120ms ease;
+}
+
+.copy-button__done {
+  opacity: 0;
+}
+
+.copy-button.is-copied .copy-button__idle {
+  opacity: 0;
+}
+
+.copy-button.is-copied .copy-button__done {
+  opacity: 1;
+}
+
+.copy-button:active {
+  transform: scale(0.98);
+}
+
+.github-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--color-muted);
+  font-weight: 500;
+  transition: color 160ms ease;
+}
+
+.copy-button:focus-visible,
+.github-link:focus-visible,
+.handoff:focus-visible,
+.repository-status__activity:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 4px;
+}
+
+.handoff {
+  position: relative;
+  width: 100%;
+  max-width: 26.25rem;
+  aspect-ratio: 21 / 20;
+  margin: 0;
+  outline: none;
+}
+
+.handoff svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.handoff__track,
+.handoff__progress,
+.handoff__check {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.handoff__track {
+  stroke: var(--color-path);
+  stroke-width: 1;
+}
+
+.handoff__progress {
+  opacity: 0.34;
+  stroke: var(--color-accent);
+  stroke-width: 1.25;
+}
+
+.handoff__signal {
+  fill: var(--color-accent);
+}
+
+.handoff__check {
+  opacity: 1;
+  stroke: var(--color-accent);
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+}
+
+.handoff__label {
+  position: absolute;
+  font-size: clamp(0.875rem, 1.2vw, 1rem);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.handoff__label--start {
+  top: 6.5%;
+  left: 13.8%;
+  color: var(--color-muted);
+}
+
+.handoff__label--mid {
+  top: 50%;
+  left: 41.4%;
+  opacity: 0.5;
+}
+
+.handoff__label--end {
+  top: 93.5%;
+  left: 13.8%;
+}
+
+.repository-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  color: var(--color-body);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.repository-status__message {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.repository-status__activity {
+  flex: 0 0 auto;
+  min-height: 2.75rem;
+  color: var(--color-muted);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.3em;
+  transition:
+    color 160ms ease,
+    text-decoration-color 160ms ease;
+}
+
+@media (hover: hover) {
+  .copy-button:hover {
+    background: var(--color-accent-hover);
+  }
+
+  .github-link:hover,
+  .repository-status__activity:hover {
+    color: var(--color-ink);
+  }
+
+  .repository-status__activity:hover {
+    text-decoration-color: currentColor;
+  }
+}
+
+@media (min-width: 48rem) {
+  .hero {
+    padding-right: clamp(3rem, 9vw, 8.25rem);
+    padding-left: clamp(3rem, 9vw, 8.25rem);
+  }
+}
+
+@media (max-width: 61rem) {
+  .hero {
+    gap: 3.5rem;
+  }
+
+  .hero-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.75rem;
+  }
+
+  .handoff {
+    width: min(100%, 23rem);
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 40rem) {
+  .hero {
+    gap: 2.75rem;
+  }
+
+  h1 {
+    max-width: 100%;
+    font-size: clamp(2.75rem, 13vw, 3.45rem);
+  }
+
+  .hero-line {
+    display: inline;
+  }
+
+  .hero-line:not(:last-child)::after {
+    content: " ";
+  }
+
+  .hero-copy > p {
+    font-size: 1.0625rem;
+  }
+
+  .actions {
+    align-items: stretch;
+  }
+
+  .copy-button {
+    width: 100%;
+  }
+
+  .github-link {
+    padding-inline: 0.25rem;
+  }
+
+  .handoff {
+    width: min(100%, 20rem);
+    margin-inline: auto;
+  }
+
+  .repository-status {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .repository-status__activity {
+    margin-left: 1.2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

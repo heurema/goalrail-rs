@@ -1,0 +1,14 @@
+# Goalrail
+
+> Evidence-backed inspection for coding-agent environments.
+
+Give a coding agent this site to begin with the supported, authority-bounded
+installation path and the current public project state.
+
+- Install: https://goalrail.dev/install.md
+- Current state: https://goalrail.dev/status.json
+- Source: https://github.com/heurema/goalrail-rs
+- Releases: https://github.com/heurema/goalrail-rs/releases
+
+The public CLI currently provides `gr inspect codex`. Skill evidence is in
+active development and is not part of the released command surface yet.

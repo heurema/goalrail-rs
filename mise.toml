@@ -34,6 +34,14 @@ run = [
   { task = "coverage" },
 ]
 
+[tasks."site:build"]
+description = "Build the static Goalrail site and its WebAssembly motion module"
+run = "./scripts/build-site.sh"
+
+[tasks."site:test"]
+description = "Test the Goalrail site motion module on the host"
+run = "cargo test -p gr-site"
+
 [tasks."release:prepare"]
 description = "Build local macOS arm64 release artifacts"
 run = "./scripts/prepare-release.sh"

@@ -122,6 +122,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "gr-site"
+version = "0.1.0"
+
+[[package]]
 name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

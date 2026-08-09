@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en" data-motion-module="./gr_site.wasm">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1d1220">
+    <meta
+      name="description"
+      content="Goalrail helps coding agents work within explicit boundaries and return verifiable evidence."
+    >
+    <title>Goalrail — Reliable development with coding agents</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='8' fill='%23e8836b'/%3E%3C/svg%3E"
+    >
+    <link rel="stylesheet" href="./styles.css">
+    <link
+      rel="alternate"
+      type="text/markdown"
+      href="./install.md"
+      title="Goalrail installation for coding agents"
+    >
+    <link rel="alternate" type="text/plain" href="./llms.txt" title="Goalrail agent index">
+    <script type="module" src="./site.js"></script>
+  </head>
+  <body>
+    <main class="hero">
+      <header class="wordmark" aria-label="Goalrail">
+        <span class="signal-dot" aria-hidden="true"></span>
+        <span>Goalrail</span>
+      </header>
+
+      <div class="hero-body">
+        <section class="hero-copy" aria-labelledby="hero-title">
+          <h1 id="hero-title">
+            <span class="hero-line">Reliable</span>
+            <span class="hero-line">development with</span>
+            <span class="hero-line hero-line--accent">coding agents.</span>
+          </h1>
+          <p>
+            Give your agent this site. Goalrail helps it work within explicit
+            boundaries and return verifiable evidence.
+          </p>
+          <div class="actions">
+            <button
+              class="copy-button"
+              type="button"
+              data-copy-url="https://goalrail.dev"
+              aria-label="Copy link for your agent"
+              aria-live="polite"
+            >
+              <span class="copy-button__idle">Copy link for your agent</span>
+              <span class="copy-button__done" aria-hidden="true">Link copied</span>
+            </button>
+            <a
+              class="github-link"
+              href="https://github.com/heurema/goalrail-rs"
+              rel="noreferrer"
+            >GitHub</a>
+          </div>
+        </section>
+
+        <figure
+          class="handoff"
+          tabindex="0"
+          aria-label="Goalrail hands a bounded task to a coding agent, which returns evidence"
+        >
+          <svg viewBox="0 0 420 400" role="img" aria-hidden="true">
+            <path
+              class="handoff__track"
+              d="M 34 26 C 34 116, 150 104, 150 200 C 150 296, 34 284, 34 374"
+            ></path>
+            <path
+              class="handoff__progress"
+              d="M 34 26 C 34 116, 150 104, 150 200 C 150 296, 34 284, 34 374"
+            ></path>
+            <circle class="handoff__signal" cx="34" cy="374" r="0"></circle>
+            <path
+              class="handoff__check"
+              d="M 27 375 l 4.5 5.5 l 10 -13"
+            ></path>
+          </svg>
+          <span class="handoff__label handoff__label--start">goalrail.dev</span>
+          <span class="handoff__label handoff__label--mid">coding agent</span>
+          <span class="handoff__label handoff__label--end">evidence returned</span>
+        </figure>
+      </div>
+
+      <footer class="repository-status">
+        <div class="repository-status__message">
+          <span class="signal-dot signal-dot--small" aria-hidden="true"></span>
+          <span id="status-copy">
+            Now — Inspect Codex available · skill evidence in active development
+          </span>
+        </div>
+        <a
+          id="repository-activity"
+          class="repository-status__activity"
+          href="https://github.com/heurema/goalrail-rs/commits/main"
+          rel="noreferrer"
+        >View main activity</a>
+      </footer>
+    </main>
+  </body>
+</html>

@@ -21,6 +21,20 @@ run = "cargo fmt --all -- --check"
 description = "Run Clippy with warnings denied"
 run = "cargo clippy --workspace --all-targets -- -D warnings"
 
+[tasks.architecture]
+description = "Check the trial architecture fitness contract"
+run = [
+  "ruby ./scripts/check-architecture.rb",
+  "ruby ./scripts/check-architecture-trend.rb",
+]
+
+[tasks."test:architecture"]
+description = "Test architecture fitness pass and fail behavior"
+run = [
+  "./scripts/test-architecture.sh",
+  "./scripts/test-architecture-trend.sh",
+]
+
 [tasks.coverage]
 description = "Run tests and report workspace coverage"
 run = "cargo llvm-cov --workspace --summary-only"
@@ -30,6 +44,8 @@ description = "Run the local CI checks"
 run = [
   { task = "fmt" },
   { task = "lint" },
+  { task = "architecture" },
+  { task = "test:architecture" },
   { task = "coverage" },
   { task = "test:verification-receipts" },
 ]

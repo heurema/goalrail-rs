@@ -2,7 +2,7 @@
 
 - Status: adopted and conforming
 - Scope: the Rust workspace
-- Last verified: 2026-08-09
+- Last verified: 2026-08-10
 
 This file records only durable, non-obvious boundaries that independent
 contributors or agents could otherwise implement incompatibly. The code owns
@@ -84,6 +84,37 @@ The compiler and pre-push Clippy check enforce visibility and dependency
 validity. Unit and CLI integration tests protect the observable inspection
 contract. AD-1 and AD-2 remain semantic ownership rules: add a focused
 architecture check when another CLI use case makes manual review ambiguous.
+
+## Architecture fitness v0 [TRIAL]
+
+`mise run architecture` is the executable counterpart to the current spine.
+It fails when the owned workspace members or dependency edges change without a
+reviewed architecture update, and when the source-level public facade snapshot
+or `Verdict` variants drift. It prints one result per AD and an aggregate result
+so agents can see both the exact boundary and the gate verdict.
+
+The command also prints a separate advisory architecture-trend result. It uses
+relative source-size outliers and three-revision growth in source lines and
+top-level items to surface cumulative hotspots as `REVIEW`. This observation
+does not fail CI or establish a module boundary; it provides evidence for the
+next architecture decision. `PASS` for the hard checks must not be read as
+`NO_REVIEW_SIGNAL` for the trend check.
+
+The v0 automation is intentionally incomplete:
+
+- AD-1 and AD-2 remain manual semantic ownership checks;
+- AD-3 checks the exact Cargo workspace and owned dependency graph;
+- AD-4 combines `#![deny(unreachable_pub)]` with a normalized snapshot of every
+  literal public declaration, including full signatures, across the library
+  source tree;
+- AD-5 checks that `gr-site` has no owned dependency edge, while the existing
+  site smoke tests protect its public artifact.
+
+File length, coupling counts, and complexity are observations rather than hard
+limits. In particular, `skills.rs` is a cohesion hotspot, but an internal
+dependency rule must be named before adding a checker or refactoring it. Trial
+observations and the revisit decision are recorded in
+[`docs/trials.md`](docs/trials.md#architecture-fitness-v0).
 
 ## Decision record
 

@@ -54,3 +54,41 @@ exact full-tree receipts, and CI-only edges only when no Rust source changed.
 The final review then rejected both a mutation-input allow-list and public
 receipt-only commands. The shipped canary hashes complete Git trees and exposes
 only commands that run their checks before writing evidence.
+
+## architecture-fitness-v0
+
+- Owner: [decision 0004](decisions/0004-trial-native-architecture-fitness.md)
+  and [`ARCHITECTURE-SPINE.md`](../ARCHITECTURE-SPINE.md#architecture-fitness-v0-trial)
+- Added: `2026-08-10`
+- Revisit: after three architecture-affecting milestones or by `2026-09-10`,
+  whichever comes first.
+- Current decision: `TRIAL`.
+
+Record only an architecture violation that changes the implementation, a false
+accept, a false reject, an unclear failure, noticeable runtime or maintenance
+cost, a manual rule that should become executable, or a check that is modified,
+moved, or removed. Routine green runs are not observations.
+
+Baseline observation: AD-1 through AD-5 currently conform, but only the exact
+workspace shape, owned dependency graph, source-level facade declarations,
+`Verdict` variants, and site owned-dependency isolation are automated. AD-1 and
+AD-2 remain manual. `skills.rs` is a cohesion hotspot combining multiple
+responsibilities; v0 records that signal without imposing a line-count limit or
+claiming an internal boundary that has not been decided.
+
+First canary and review observation (`2026-08-10`): the initial implementation
+used a Ruby API unavailable in the supported local runtime, accepted signature
+changes (including multiline signatures) and public methods placed after a test
+module, and omitted per-AD statuses on failed runs. The checker now uses
+compatible iteration, snapshots full literal declarations across every library
+source file, prints all AD statuses on both pass and failure, and has regression
+fixtures for those failure modes.
+
+Pre-fix trend receipt (`2026-08-10`): the generic canary reports
+`crates/gr-inspect-codex/src/skills.rs` as `REVIEW`. Across revisions
+`351328b -> b8f5d56 -> 84c9e8e`, source lines grow
+`2763 -> 3104 -> 3208` and top-level items grow `81 -> 86 -> 91`; the current
+file is above its crate-relative Tukey upper fence of `1717` source lines. This
+receipt is evidence of a cumulative hotspot, not a decided module split or an
+AD violation. Preserve it unchanged until a later milestone tests a proposed
+boundary against the same diagnostic.

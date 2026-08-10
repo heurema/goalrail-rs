@@ -57,7 +57,8 @@ for marker in \
   'AD-3: PASS' \
   'AD-4: PASS' \
   'AD-5: PASS' \
-  'Architecture fitness v0: PASS (automated scope)'; do
+  'AD-6: REVIEW - accepted boundary is not implemented' \
+  'Architecture fitness v0: REVIEW (AD-6 semantic enforcement pending)'; do
   grep -Fq "$marker" "$baseline_output" ||
     fail "the passing receipt omitted $marker"
 done
@@ -73,10 +74,10 @@ expect_failure() {
     sed -n '1,100p' "$output" >&2
     fail "the failure did not identify $expected"
   }
-  ad_count=$(grep -Ec '^AD-[1-5]:' "$output" || true)
-  test "$ad_count" -eq 5 || {
+  ad_count=$(grep -Ec '^AD-[1-6]:' "$output" || true)
+  test "$ad_count" -eq 6 || {
     sed -n '1,100p' "$output" >&2
-    fail "the failed receipt did not report all five ADs"
+    fail "the failed receipt did not report all six ADs"
   }
   grep -Fq 'Architecture fitness v0: FAILED' "$output" ||
     fail "the failed receipt omitted its aggregate result"
@@ -192,9 +193,46 @@ expect_failure "$invalid_metadata" "metadata JSON is invalid"
 for marker in \
   'AD-3: NOT_RUN' \
   'AD-4: NOT_RUN' \
-  'AD-5: NOT_RUN'; do
+  'AD-5: NOT_RUN' \
+  'AD-6: REVIEW - accepted boundary is not implemented'; do
   grep -Fq "$marker" "$invalid_metadata/failure.out" ||
     fail "invalid metadata did not report $marker"
 done
+
+boundary_failure="$test_root/boundary-failure"
+cp -R "$baseline" "$boundary_failure"
+mkdir -p "$boundary_failure/crates/gr-inspect-codex/src/skills"
+cat >>"$boundary_failure/crates/gr-inspect-codex/src/skills.rs" <<'RUST'
+
+mod model;
+mod catalog;
+mod history;
+mod assessment;
+mod presentation;
+RUST
+cat >"$boundary_failure/crates/gr-inspect-codex/src/skills/model.rs" <<'RUST'
+pub(super) struct Evidence;
+RUST
+cat >"$boundary_failure/crates/gr-inspect-codex/src/skills/catalog.rs" <<'RUST'
+use super::model::Evidence;
+pub(super) struct Catalog(Evidence);
+RUST
+cat >"$boundary_failure/crates/gr-inspect-codex/src/skills/history.rs" <<'RUST'
+use super::presentation::View;
+pub(super) struct History(View);
+RUST
+cat >"$boundary_failure/crates/gr-inspect-codex/src/skills/assessment.rs" <<'RUST'
+use super::model::Evidence;
+pub(super) struct Assessment(Evidence);
+RUST
+cat >"$boundary_failure/crates/gr-inspect-codex/src/skills/presentation.rs" <<'RUST'
+use super::assessment::Assessment;
+pub(super) struct View(Assessment);
+RUST
+expect_failure "$boundary_failure" "AD-6 forbidden edge: history -> presentation"
+grep -Fq 'AD-3: PASS' "$boundary_failure/failure.out" ||
+  fail "an AD-6 failure obscured the passing AD-3 result"
+grep -Fq 'AD-6: FAILED' "$boundary_failure/failure.out" ||
+  fail "a forbidden skills edge did not fail AD-6"
 
 echo "Architecture fitness tests passed"

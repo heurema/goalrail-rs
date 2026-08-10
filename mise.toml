@@ -31,6 +31,7 @@ run = [
 [tasks."test:architecture"]
 description = "Test architecture fitness pass and fail behavior"
 run = [
+  "./scripts/test-skills-boundary.sh",
   "./scripts/test-architecture.sh",
   "./scripts/test-architecture-trend.sh",
 ]

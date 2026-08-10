@@ -1,6 +1,6 @@
 # Goalrail Architecture Spine
 
-- Status: adopted and conforming
+- Status: adopted; AD-6 remediation pending
 - Scope: the Rust workspace
 - Last verified: 2026-08-10
 
@@ -66,6 +66,24 @@ flowchart LR
   message. `gr-site` may enhance motion only, must have a browser fallback, and
   must not depend on `gr` or `gr-inspect-codex`.
 
+### AD-6 — Keep skill evidence acquisition policy-free
+
+- **Binds:** internal skill inspection modules inside `gr-inspect-codex`.
+- **Prevents:** Codex RPC and retained-rollout parsing changing when cleanup
+  policy, verdict rules, or rendering changes.
+- **Rule:** catalog and usage-history acquisition produce neutral evidence and
+  must not depend on assessment, cleanup, findings, verdicts, item views, or
+  presentation. Assessment consumes normalized evidence but performs no
+  process, environment, filesystem, clock, or rendering work. Presentation
+  consumes assessment output and does not acquire evidence. The skills use
+  case alone sequences these stages.
+
+The accepted internal dependency direction is `catalog -> model`,
+`history -> model`, `assessment -> model`, and
+`presentation -> assessment`; the orchestrator may depend on every stage. All
+reverse stage edges are forbidden. The evidence and rationale are preserved in
+[decision 0005](docs/decisions/0005-propose-skill-evidence-assessment-boundary.md).
+
 ## Current conformance
 
 - AD-1: `gr` parses the command, invokes `inspect_codex`, renders the opaque
@@ -79,6 +97,12 @@ flowchart LR
   their opaque outcomes, and `Verdict`. Probe and report internals are
   `pub(crate)`, and `#![deny(unreachable_pub)]` rejects accidental unreachable
   public items.
+- AD-5: `gr-site` has no owned dependency edge and its checked-in HTML owns the
+  complete public message without WebAssembly.
+- AD-6: **REVIEW**. `skills.rs` still combines catalog and history acquisition,
+  cleanup assessment, filesystem-backed origin normalization, report
+  construction, and presentation. The accepted boundary is not yet expressed
+  as internal modules, so no semantic dependency graph exists to prove.
 
 The compiler and pre-push Clippy check enforce visibility and dependency
 validity. Unit and CLI integration tests protect the observable inspection
@@ -89,9 +113,12 @@ architecture check when another CLI use case makes manual review ambiguous.
 
 `mise run architecture` is the executable counterpart to the current spine.
 It fails when the owned workspace members or dependency edges change without a
-reviewed architecture update, and when the source-level public facade snapshot
-or `Verdict` variants drift. It prints one result per AD and an aggregate result
-so agents can see both the exact boundary and the gate verdict.
+reviewed architecture update, when the source-level public facade snapshot or
+`Verdict` variants drift, or when the provisional AD-6 canary detects a pinned
+forbidden case. It prints one result per AD and an aggregate result so agents
+can see both the exact boundary and the gate verdict. The current aggregate is
+`REVIEW`, with a successful exit, because AD-6 is accepted but not yet
+implemented.
 
 The command also prints a separate advisory architecture-trend result. It uses
 relative source-size outliers and three-revision growth in source lines and
@@ -109,11 +136,22 @@ The v0 automation is intentionally incomplete:
   source tree;
 - AD-5 checks that `gr-site` has no owned dependency edge, while the existing
   site smoke tests protect its public artifact.
+- AD-6 provisionally rejects a partial or unclassified skills-module topology,
+  missing top-level declarations, forbidden source imports between the accepted
+  stages, and process, environment, filesystem, clock, or rendering tokens in
+  assessment. Positive, lexical and conditional declaration-spoof,
+  forbidden-edge, and per-category purity fixtures pin that behavior.
+
+The AD-6 source checker is deliberately unable to return `PASS`. A conforming
+source fixture remains `REVIEW` until a semantic module-graph canary proves the
+same dependency edges. This prevents text matching from being reported as
+architectural proof while still exposing the current problem in every receipt.
 
 File length, coupling counts, and complexity are observations rather than hard
-limits. In particular, `skills.rs` is a cohesion hotspot, but an internal
-dependency rule must be named before adding a checker or refactoring it. Trial
-observations and the revisit decision are recorded in
+limits. `skills.rs` remains a cohesion hotspot and AD-6 now names its missing
+internal dependency boundary; the trend receipt must remain `REVIEW` until the
+boundary is implemented and measured without rebaselining. Trial observations
+and the revisit decision are recorded in
 [`docs/trials.md`](docs/trials.md#architecture-fitness-v0).
 
 ## Decision record
@@ -126,7 +164,11 @@ observations and the revisit decision are recorded in
   compiler and repository checks as those checks become concrete.
 - **Rejected:** `AGENTS.md` would mix durable architecture with operating
   instructions; a full workflow would introduce premature files and tools.
-- **Rollback:** delete this file; it has no runtime or tooling dependency.
-- **Revisit:** when a fourth owned crate is introduced, the site needs runtime
-  application data, a public contract changes, or a rule cannot be enforced
-  with the compiler and existing tests.
+- **Rollback:** remove AD-6, its checker integration, and its fixtures together
+  to restore the prior AD-1-through-AD-5 trial. Deleting the complete spine and
+  architecture trial remains possible because neither affects runtime data.
+- **Revisit:** before the next skills behavior milestone or any split of
+  `skills.rs`, replace the provisional AD-6 source canary with a semantic
+  module-graph check; also revisit when a fourth owned crate is introduced, the
+  site needs runtime application data, a public contract changes, or a rule
+  cannot be enforced with the compiler and existing tests.

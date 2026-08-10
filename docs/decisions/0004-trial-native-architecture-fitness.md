@@ -92,6 +92,21 @@ missing boundary, not an accepted invariant. The hard fitness result and trend
 result remain separate so agents cannot interpret a green boundary check as a
 claim that the architecture has no hotspots.
 
+### Trial extension: accepted skill pipeline boundary
+
+The hotspot review produced the owner-accepted AD-6 evidence-to-assessment
+boundary in [decision 0005](0005-propose-skill-evidence-assessment-boundary.md).
+Every hard-check receipt now reports AD-6. Until the Rust modules exist, the
+aggregate result is `REVIEW` rather than a misleading green result.
+
+The first canary is intentionally source-level and provisional. It rejects a
+partial or unclassified stage topology, pinned forbidden imports, and process,
+environment, filesystem, clock, or rendering tokens in assessment. Positive,
+lexical and conditional declaration-spoof, forbidden-edge, and per-category
+purity fixtures protect those claims. The canary cannot return AD-6 `PASS`; the
+first boundary extraction must replace it with a semantic module-graph check
+that passes the same sabotage fixtures.
+
 ## Constraints and Objections
 
 - A line-count or complexity threshold was rejected because it cannot

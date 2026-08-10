@@ -69,7 +69,7 @@ accept, a false reject, an unclear failure, noticeable runtime or maintenance
 cost, a manual rule that should become executable, or a check that is modified,
 moved, or removed. Routine green runs are not observations.
 
-Baseline observation: AD-1 through AD-5 currently conform, but only the exact
+Original baseline observation: AD-1 through AD-5 conformed, but only the exact
 workspace shape, owned dependency graph, source-level facade declarations,
 `Verdict` variants, and site owned-dependency isolation are automated. AD-1 and
 AD-2 remain manual. `skills.rs` is a cohesion hotspot combining multiple
@@ -92,3 +92,22 @@ file is above its crate-relative Tukey upper fence of `1717` source lines. This
 receipt is evidence of a cumulative hotspot, not a decided module split or an
 AD violation. Preserve it unchanged until a later milestone tests a proposed
 boundary against the same diagnostic.
+
+Boundary-analysis observation (`2026-08-10`): the trend signal produced
+[proposal 0005](decisions/0005-propose-skill-evidence-assessment-boundary.md).
+The verified direction is evidence acquisition to assessment to
+presentation, with orchestration above the stages. The owner accepted this
+direction on `2026-08-10`. Moving colocated tests alone is explicitly not
+considered resolution of the hotspot.
+
+AD-6 adoption observation (`2026-08-10`): the accepted boundary is now in the
+spine and every architecture receipt reports it. The current repository
+reports `AD-6: REVIEW - accepted boundary is not implemented`, preserving the
+pre-fix problem before any Rust move. A provisional source checker rejects
+partial or unclassified stage topology, a pinned `history -> presentation`
+edge, all five forbidden assessment effect categories, and comment/nested-module
+declaration spoofing, including brace characters inside char and byte-char
+literals and stage declarations hidden behind attributes. Its allowed-topology
+fixture also stays `REVIEW`; semantic module-graph enforcement remains the
+revisit condition for the first extraction. This modification adds useful
+negative detection without treating text parsing as proof of conformance.

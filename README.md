@@ -88,9 +88,11 @@ mise run architecture
 mise run ci
 ```
 
-`mise run architecture` runs the current `[TRIAL]` hard architecture checks,
-reports which ADs remain manual, and prints a separate advisory trend result for
-cumulative source hotspots. `mise run ci` checks architecture and its fixtures,
+`mise run architecture` runs the current `[TRIAL]` architecture checks, reports
+each AD as `PASS`, `REVIEW`, `MANUAL`, `FAILED`, or `NOT_RUN` when its input is
+unavailable, and prints a separate advisory trend result for cumulative source
+hotspots. AD-6 remains `REVIEW` until its accepted skills boundary has semantic
+module-graph enforcement. `mise run ci` checks architecture and its fixtures,
 formatting, Clippy, workspace tests, and coverage. A successful
 `verify:rust-milestone` run records local verification evidence under `.git`.
 The tracked native pre-push hook checks every pushed ref for exact-tree CI
@@ -138,6 +140,9 @@ gate does not publish, tag, install, or update anything.
 - [Native architecture fitness trial](docs/decisions/0004-trial-native-architecture-fitness.md)
   makes the current objective architecture boundaries executable and records
   which semantic rules remain manual.
+- [Skill evidence-to-assessment boundary](docs/decisions/0005-propose-skill-evidence-assessment-boundary.md)
+  adopts AD-6 while keeping the current public contract and Rust layout
+  unchanged until a separately reviewed extraction.
 - [Model behavior evaluation proposal](docs/ideas/model-behavior-evaluation.md)
   captures a possible provider-neutral comparison mechanism. It is not part of
   the runtime or public CLI yet.

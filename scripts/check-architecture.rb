@@ -3,6 +3,7 @@
 require "json"
 require "open3"
 require "pathname"
+require_relative "check-skills-boundary"
 
 EXPECTED_WORKSPACE_MEMBERS = %w[gr gr-inspect-codex gr-site].freeze
 EXPECTED_OWNED_EDGES = ["gr --normal--> gr-inspect-codex"].freeze
@@ -194,20 +195,30 @@ def status(passed, pass_message, fail_message)
   passed ? "PASS - #{pass_message}" : "FAILED - #{fail_message}"
 end
 
-def print_receipt(ad3:, ad4:, ad5:, aggregate:, details: [])
-  output = aggregate == "PASS" ? $stdout : $stderr
+def print_receipt(ad3:, ad4:, ad5:, ad6:, aggregate:, details: [])
+  output = aggregate == "FAILED" ? $stderr : $stdout
   output.puts "AD-1: MANUAL - CLI semantic ownership is not automated in v0"
   output.puts "AD-2: MANUAL - library orchestration ownership is not automated in v0"
   output.puts "AD-3: #{ad3}"
   output.puts "AD-4: #{ad4}"
   output.puts "AD-5: #{ad5}"
-  output.puts "Architecture fitness v0: #{aggregate}#{aggregate == "PASS" ? " (automated scope)" : ""}"
+  output.puts "AD-6: #{ad6}"
+  suffix = case aggregate
+  when "PASS"
+    " (automated scope)"
+  when "REVIEW"
+    " (AD-6 semantic enforcement pending)"
+  else
+    ""
+  end
+  output.puts "Architecture fitness v0: #{aggregate}#{suffix}"
   details.each { |detail| output.puts "- #{detail}" }
 end
 
 root = Pathname.new(
   ENV.fetch("GOALRAIL_ARCHITECTURE_ROOT", File.expand_path("..", __dir__)),
 ).expand_path
+ad6 = SkillsBoundary.check(root)
 
 begin
   metadata = parse_metadata(load_metadata(root))
@@ -217,8 +228,9 @@ rescue ArchitectureInputError => error
     ad3: "NOT_RUN - architecture input failed",
     ad4: "NOT_RUN - architecture input failed",
     ad5: "NOT_RUN - architecture input failed",
+    ad6: ad6.receipt,
     aggregate: "FAILED",
-    details: [error.message],
+    details: [error.message] + ad6.details,
   )
   exit 1
 end
@@ -276,8 +288,9 @@ rescue ArchitectureInputError => error
       "gr-site has no owned dependency edge",
       "gr-site is missing or has an owned dependency edge",
     ),
+    ad6: ad6.receipt,
     aggregate: "FAILED",
-    details: ad3_violations + [error.message],
+    details: ad3_violations + [error.message] + ad6.details,
   )
   exit 1
 end
@@ -285,7 +298,7 @@ end
 ad3_passed = ad3_violations.empty?
 ad4_passed = ad4_violations.empty?
 aggregate_passed = ad3_passed && ad4_passed && site_isolation_passed
-details = ad3_violations + ad4_violations
+details = ad3_violations + ad4_violations + ad6.details
 unless site_isolation_passed
   details << "AD-5 gr-site isolation changed" unless details.any? { |item| item.include?("gr-site") }
 end
@@ -306,8 +319,15 @@ print_receipt(
     "gr-site has no owned dependency edge",
     "gr-site is missing or has an owned dependency edge",
   ),
-  aggregate: aggregate_passed ? "PASS" : "FAILED",
+  ad6: ad6.receipt,
+  aggregate: if !aggregate_passed || ad6.failed?
+    "FAILED"
+  elsif ad6.status == "REVIEW"
+    "REVIEW"
+  else
+    "PASS"
+  end,
   details: details,
 )
 
-exit 1 unless aggregate_passed
+exit 1 unless aggregate_passed && !ad6.failed?

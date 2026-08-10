@@ -34,6 +34,27 @@ run = [
   { task = "coverage" },
 ]
 
+[tasks."mutants:diff"]
+description = "Run mutation tests only for code overlapping a goal-scoped diff"
+run = '''
+if [ -z "${GOALRAIL_MUTATION_DIFF:-}" ]; then
+  echo "GOALRAIL_MUTATION_DIFF must point to a goal-scoped unified diff" >&2
+  exit 2
+fi
+if [ ! -s "$GOALRAIL_MUTATION_DIFF" ]; then
+  echo "GOALRAIL_MUTATION_DIFF is missing or empty: $GOALRAIL_MUTATION_DIFF" >&2
+  exit 2
+fi
+cargo mutants --workspace --in-diff "$GOALRAIL_MUTATION_DIFF" --output target/mutants-diff
+'''
+
+[tasks."verify:rust-milestone"]
+description = "Run closure checks for a goal-scoped Rust behavior milestone"
+run = [
+  { task = "ci" },
+  { task = "mutants:diff" },
+]
+
 [tasks."site:build"]
 description = "Build the static Goalrail site and its WebAssembly motion module"
 run = "./scripts/build-site.sh"

@@ -10,6 +10,13 @@
 - Run `mise run ci` after Rust behavior or architecture changes. Before
   declaring such a milestone `DONE`, create a goal-scoped diff and run
   `GOALRAIL_MUTATION_DIFF=<path> mise run verify:rust-milestone`.
+- `[TRIAL: local-verification-receipts]` A successful Rust milestone check
+  records exact-tree CI evidence and a mutation-state edge under the common Git
+  directory. Pre-push validates every pushed ref and must fail fast instead of
+  rerunning checks. Run the exact `verify:ci-state` or
+  `verify:outgoing-rust` recovery command printed by the hook before retrying
+  the push. `verify:ci-state` may bridge only a committed edge with no `.rs`
+  changes; any Rust source change requires diff-scoped mutation testing.
 - Do not commit, push, publish, release, deploy, or perform destructive work
   without explicit owner approval.
 

@@ -88,8 +88,14 @@ mise run ci
 ```
 
 `mise run ci` checks formatting, runs Clippy with warnings denied, executes the
-workspace tests, and reports coverage. The installed pre-push hook runs the
-same checks plus mutation testing for changed Rust files.
+workspace tests, and reports coverage. A successful
+`verify:rust-milestone` run records local verification evidence under `.git`.
+The tracked native pre-push hook checks every pushed ref for exact-tree CI
+evidence and a full-tree verification receipt chain; it does not run CI or
+mutation tests while a network connection is open. Missing exact-tree evidence
+prints a fast `verify:ci-state <base> <head>` recovery command only when the
+missing edge changes no Rust source. Any unverified `.rs` change prints the
+goal-scoped `verify:outgoing-rust` command to run before retrying the push.
 
 ## Local release preparation
 
@@ -124,6 +130,8 @@ gate does not publish, tag, install, or update anything.
 - [Agent-first lifecycle decision](docs/decisions/0002-make-lifecycle-agent-first.md)
   defines the bounded Homebrew protocol for agent-operated installation,
   update, and removal.
+- [Local verification receipt trial](docs/decisions/0003-use-local-verification-receipts-for-push.md)
+  separates slow local verification from the pre-push network operation.
 - [Model behavior evaluation proposal](docs/ideas/model-behavior-evaluation.md)
   captures a possible provider-neutral comparison mechanism. It is not part of
   the runtime or public CLI yet.

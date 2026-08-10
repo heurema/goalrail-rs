@@ -35,3 +35,22 @@ passed workspace CI and all 536 generated mutants: 503 were caught and 33 were
 unviable, with no missed mutants or timeouts. The repeated mutation cycles were
 noticeable but bounded to the milestone diff. Keep the closure gate and its
 fail-closed diff requirement as permanent project policy.
+
+## local-verification-receipts
+
+- Owner: [decision 0003](decisions/0003-use-local-verification-receipts-for-push.md)
+- Added: `2026-08-10`
+- Revisit: after three real pushes or by `2026-09-10`, whichever comes first.
+- Current decision: `TRIAL`.
+
+Record only a failed or confusing receipt check, unnecessary verification,
+false accept, false reject, material wait, or a change to the trial contract.
+
+The first canary reproduced a false accept: `prek` validated only one range in
+a two-ref push, so an unverified Rust branch escaped the hook. Independent
+review also found that one state hash could not soundly represent both exact CI
+inputs and reusable mutation evidence. The trial now uses a native all-ref hook,
+exact full-tree receipts, and CI-only edges only when no Rust source changed.
+The final review then rejected both a mutation-input allow-list and public
+receipt-only commands. The shipped canary hashes complete Git trees and exposes
+only commands that run their checks before writing evidence.

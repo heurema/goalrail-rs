@@ -2,7 +2,6 @@ min_version = "2025.8.11"
 
 [tools]
 rust = "1.97.1"
-prek = "0.4.12"
 "cargo:cargo-llvm-cov" = "0.8.7"
 "cargo:cargo-mutants" = "27.1.0"
 
@@ -11,7 +10,7 @@ description = "Install pinned tools and the pre-push hook"
 run = [
   "mise install",
   "rustup component add llvm-tools-preview",
-  "prek install",
+  "./scripts/install-git-hooks.sh",
 ]
 
 [tasks.fmt]
@@ -32,6 +31,7 @@ run = [
   { task = "fmt" },
   { task = "lint" },
   { task = "coverage" },
+  { task = "test:verification-receipts" },
 ]
 
 [tasks."mutants:diff"]
@@ -49,11 +49,20 @@ cargo mutants --workspace --in-diff "$GOALRAIL_MUTATION_DIFF" --output target/mu
 '''
 
 [tasks."verify:rust-milestone"]
-description = "Run closure checks for a goal-scoped Rust behavior milestone"
-run = [
-  { task = "ci" },
-  { task = "mutants:diff" },
-]
+description = "Verify a goal-scoped Rust milestone and record a local receipt"
+run = './scripts/rust-verification-receipts.sh verify-milestone "$GOALRAIL_MUTATION_DIFF"'
+
+[tasks."verify:outgoing-rust"]
+description = "Verify an already committed outgoing Rust range before push"
+run = './scripts/rust-verification-receipts.sh verify-outgoing "$@"'
+
+[tasks."verify:ci-state"]
+description = "Run CI for a no-Rust-change edge and record the exact tree"
+run = './scripts/rust-verification-receipts.sh verify-ci "$@"'
+
+[tasks."test:verification-receipts"]
+description = "Test local Rust verification receipt behavior"
+run = "./scripts/test-rust-verification-receipts.sh"
 
 [tasks."site:build"]
 description = "Build the static Goalrail site and its WebAssembly motion module"

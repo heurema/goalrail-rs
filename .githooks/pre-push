@@ -1,0 +1,40 @@
+#!/bin/sh
+
+set -eu
+
+remote_name=${1:-}
+test -n "$remote_name" || {
+  echo "Goalrail pre-push: missing remote name" >&2
+  exit 1
+}
+
+hook_dir=$(CDPATH='' cd -- "$(dirname "$0")" && pwd)
+source_root=$(dirname "$hook_dir")
+checker="$source_root/scripts/rust-verification-receipts.sh"
+zero_ref_count=0
+
+while read -r local_ref local_oid remote_ref remote_oid extra; do
+  test -z "${extra:-}" || {
+    echo "Goalrail pre-push: malformed ref update" >&2
+    exit 1
+  }
+  test -n "${local_ref:-}" && test -n "${remote_ref:-}" || {
+    echo "Goalrail pre-push: incomplete ref update" >&2
+    exit 1
+  }
+
+  case "$local_oid" in
+    ''|*[!0]*) ;;
+    *)
+      zero_ref_count=$((zero_ref_count + 1))
+      continue
+      ;;
+  esac
+
+  PRE_COMMIT_REMOTE_NAME="$remote_name" \
+    "$checker" check "$remote_oid" "$local_oid" "$local_ref" </dev/null
+done
+
+if test "$zero_ref_count" -gt 0; then
+  echo "Goalrail pre-push: skipped $zero_ref_count branch deletion(s)"
+fi

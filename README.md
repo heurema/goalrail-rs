@@ -13,6 +13,7 @@ evidence as success.
 ```bash
 cargo run -p gr -- inspect codex
 cargo run -p gr -- inspect codex --json
+cargo run -p gr -- inspect codex skills --actionable --json
 cargo run -p gr -- inspect codex skills --json
 ```
 
@@ -29,10 +30,18 @@ verdicts:
 | `BLOCKED` | 4 | Codex was unavailable or could not be executed. |
 
 These verdicts are Goalrail policy, not native OpenAI classifications.
+The exact Codex doctor limitation `terminal.env` with the known
+`TERM=dumb - colors and cursor control are disabled` message is counted in
+`doctor.ignoredCheckCount` but does not produce `REVIEW`; it is expected when
+an agent runs the command without an interactive terminal. Other doctor
+failures, including other `terminal.env` messages, remain actionable.
 
 The summary refreshes the active skill count, breaks it down by ownership
 origin, and advertises supported drilldowns without running their heavier
-evidence scans.
+evidence scans. Its skills drilldown uses `--actionable` so an agent receives
+only cleanup candidates by default. The command reports `itemView`,
+`itemsReturned`, and `itemsOmitted`; remove `--actionable` to retrieve the full
+catalog with last-use evidence.
 `gr inspect codex skills --json` refreshes the active catalog
 through Codex `skills/list`, then scans retained rollout files for exact skill
 manifest paths in tool calls and counts at most one observation per task turn.

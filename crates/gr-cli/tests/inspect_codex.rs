@@ -123,6 +123,9 @@ fn reports_live_skill_catalog_usage_and_excludes_the_current_thread() {
     );
     assert_eq!(report["cleanup"]["keep"], 1);
     assert_eq!(report["cleanup"]["manualReview"], 0);
+    assert_eq!(report["itemView"], "all");
+    assert_eq!(report["itemsReturned"], 1);
+    assert_eq!(report["itemsOmitted"], 0);
     assert_eq!(report["coverage"]["rolloutsDiscovered"], 2);
     assert_eq!(report["coverage"]["rolloutsScanned"], 1);
     assert_eq!(report["coverage"]["rolloutsExcludedCurrent"], 1);
@@ -139,6 +142,44 @@ fn reports_live_skill_catalog_usage_and_excludes_the_current_thread() {
         "2999-01-01T00:00:02Z"
     );
     assert_eq!(report["items"][0]["lastEvidence"]["threadId"], "old-thread");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_gr"))
+        .args(["inspect", "codex", "skills", "--actionable", "--json"])
+        .current_dir(&project)
+        .env("PATH", &fake_bin)
+        .env("CODEX_HOME", &codex_home)
+        .env("CODEX_THREAD_ID", "current-thread")
+        .output()
+        .expect("gr should run the actionable skills view");
+    let stderr = String::from_utf8(output.stderr).expect("stderr should be UTF-8");
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("actionable skills output should be JSON");
+    assert_eq!(report["summary"]["total"], 1);
+    assert_eq!(report["cleanup"]["keep"], 1);
+    assert_eq!(report["itemView"], "actionable");
+    assert_eq!(report["itemsReturned"], 0);
+    assert_eq!(report["itemsOmitted"], 1);
+    assert_eq!(report["items"].as_array().map(Vec::len), Some(0));
+}
+
+#[test]
+fn ignores_the_exact_term_dumb_doctor_limitation() {
+    let tree = TestDirectory::new();
+    let fake_bin = tree.directory("fake-bin");
+    let codex_home = tree.directory("codex-home");
+    let project = tree.directory("project");
+    tree.directory("project/.git");
+    write_fake_codex(&fake_bin);
+
+    let output = run_gr(&fake_bin, &codex_home, &project, Some("doctor-term-dumb"));
+    let stdout = assert_report(output, 0, "BASELINE_OK");
+    let report: serde_json::Value =
+        serde_json::from_str(&stdout).expect("summary output should be JSON");
+
+    assert_eq!(report["doctor"]["status"], "ok");
+    assert_eq!(report["doctor"]["ignoredCheckCount"], 1);
+    assert_eq!(report["findings"].as_array().map(Vec::len), Some(0));
 }
 
 #[test]
@@ -284,6 +325,12 @@ fn reports_project_and_instruction_sources_from_the_fixture() {
     assert!(stdout.contains(r#""catalogErrors": 0"#));
     assert!(stdout.contains(r#""section": "skills""#));
     assert!(stdout.contains(r#""inspect""#));
+    let report: serde_json::Value =
+        serde_json::from_str(&stdout).expect("summary output should be JSON");
+    assert_eq!(
+        report["drilldowns"][0]["argv"],
+        serde_json::json!(["gr", "inspect", "codex", "skills", "--actionable", "--json"])
+    );
 }
 
 #[test]
@@ -369,6 +416,10 @@ case "$1" in
     case "$FAKE_CASE" in
       doctor-fail)
         printf '%s\n' '{"schemaVersion":1,"overallStatus":"fail","codexVersion":"test","checks":{"fixture":{"id":"fixture","status":"fail","summary":"fixture failure"}}}'
+        exit 1
+        ;;
+      doctor-term-dumb)
+        printf '%s\n' '{"schemaVersion":1,"overallStatus":"fail","codexVersion":"test","checks":{"terminal.env":{"id":"terminal.env","status":"fail","summary":"TERM=dumb - colors and cursor control are disabled"}}}'
         exit 1
         ;;
       doctor-malformed|doctor-malformed-and-plugins-fail)

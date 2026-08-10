@@ -13,7 +13,7 @@ pub(crate) struct DoctorReport {
     pub(crate) checks: BTreeMap<String, DoctorCheck>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct DoctorCheck {
     pub(crate) id: String,

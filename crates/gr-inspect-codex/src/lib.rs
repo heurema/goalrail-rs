@@ -17,7 +17,7 @@ use std::{io, str::Utf8Error, time::Duration};
 use process::run_bounded;
 use serde::Serialize;
 
-pub use skills::{SkillsInspectionOutcome, inspect_codex_skills};
+pub use skills::{SkillsInspectionOutcome, inspect_codex_skill_actions, inspect_codex_skills};
 pub use use_case::{InspectionOutcome, inspect_codex};
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);

@@ -80,6 +80,23 @@ impl SkillsInspectionOutcome {
     }
 }
 
+impl SkillsInspectionReport {
+    fn apply_item_view(&mut self, view: SkillItemView) {
+        match view {
+            SkillItemView::All => {}
+            SkillItemView::Actionable => self.retain_actionable_items(),
+        }
+    }
+
+    fn retain_actionable_items(&mut self) {
+        self.item_view = SkillItemView::Actionable;
+        self.items
+            .retain(|item| item.cleanup_disposition.is_actionable());
+        self.items_returned = self.items.len();
+        self.items_omitted = self.summary.total.saturating_sub(self.items_returned);
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SkillsInspectionReport {
@@ -95,8 +112,27 @@ struct SkillsInspectionReport {
     summary: SkillUsageSummary,
     cleanup_policy: &'static str,
     cleanup: SkillCleanupSummary,
+    item_view: SkillItemView,
+    items_returned: usize,
+    items_omitted: usize,
     items: Vec<SkillUsageItem>,
     findings: Vec<ReportFinding>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum SkillItemView {
+    All,
+    Actionable,
+}
+
+impl SkillItemView {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Actionable => "actionable",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -276,6 +312,13 @@ impl CleanupDisposition {
             Self::ManagedNoManualCleanup => 3,
             Self::Keep => 4,
         }
+    }
+
+    const fn is_actionable(self) -> bool {
+        matches!(
+            self,
+            Self::ManualReview | Self::Defer | Self::InvestigateOrigin
+        )
     }
 }
 
@@ -501,10 +544,21 @@ impl UsageEvidence {
 }
 
 pub fn inspect_codex_skills() -> SkillsInspectionOutcome {
+    inspect_codex_skills_with_view(SkillItemView::All)
+}
+
+pub fn inspect_codex_skill_actions() -> SkillsInspectionOutcome {
+    inspect_codex_skills_with_view(SkillItemView::Actionable)
+}
+
+fn inspect_codex_skills_with_view(view: SkillItemView) -> SkillsInspectionOutcome {
     match inspect_codex_skills_inner() {
-        Ok(report) => SkillsInspectionOutcome {
-            report: SkillsOutcomeReport::Complete(Box::new(report)),
-        },
+        Ok(mut report) => {
+            report.apply_item_view(view);
+            SkillsInspectionOutcome {
+                report: SkillsOutcomeReport::Complete(Box::new(report)),
+            }
+        }
         Err(error) => skill_failure(error),
     }
 }
@@ -1246,6 +1300,7 @@ fn build_report(
         Verdict::Review
     };
 
+    let items_returned = items.len();
     SkillsInspectionReport {
         schema_version: REPORT_SCHEMA_VERSION,
         kind: ReportKind::Skills,
@@ -1274,6 +1329,9 @@ fn build_report(
         summary,
         cleanup_policy: CLEANUP_POLICY,
         cleanup,
+        item_view: SkillItemView::All,
+        items_returned,
+        items_omitted: 0,
         items,
         findings,
     }
@@ -1476,6 +1534,14 @@ fn format_human_report(report: &SkillsInspectionReport) -> String {
         report.cleanup.keep,
         report.cleanup.defer,
         report.cleanup.investigate_origin
+    )
+    .expect("writing to String");
+    writeln!(
+        output,
+        "Items: {} {} returned, {} omitted",
+        report.items_returned,
+        report.item_view.as_str(),
+        report.items_omitted
     )
     .expect("writing to String");
     writeln!(
@@ -1869,6 +1935,9 @@ mod tests {
 
         assert_eq!(report.summary.recent, 1);
         assert_eq!(report.summary.total, 1);
+        assert_eq!(report.item_view, SkillItemView::All);
+        assert_eq!(report.items_returned, 1);
+        assert_eq!(report.items_omitted, 0);
         assert_eq!(report.cleanup.keep, 1);
         assert_eq!(report.cleanup.manual_review, 0);
         assert_eq!(
@@ -1903,6 +1972,7 @@ mod tests {
             "Coverage: complete (1 scanned, 0 excluded current, 0 unreadable, 0 discovery errors)"
         ));
         assert!(human.contains("Cleanup: 0 manual review, 0 managed no-manual-cleanup, 1 keep"));
+        assert!(human.contains("Items: 1 all returned, 0 omitted"));
         assert!(human.contains("CLEANUP\tSIGNAL\tUSES\tLAST OBSERVED\tORIGIN\tSCOPE\tSKILL"));
         assert!(human.contains("keep\trecent\t2\t2026-08-08T00:00:01Z\tpersonal\tuser\texample"));
     }
@@ -1912,6 +1982,8 @@ mod tests {
         assert_eq!(CoverageStatus::Complete.as_str(), "complete");
         assert_eq!(CoverageStatus::Partial.as_str(), "partial");
         assert_eq!(CoverageStatus::None.as_str(), "none");
+        assert_eq!(SkillItemView::All.as_str(), "all");
+        assert_eq!(SkillItemView::Actionable.as_str(), "actionable");
 
         let origins = [
             (SkillOrigin::System, "system"),
@@ -1955,6 +2027,11 @@ mod tests {
             assert_eq!(disposition.as_str(), expected_label);
             assert_eq!(disposition.sort_rank(), expected_rank);
         }
+        assert!(!CleanupDisposition::Keep.is_actionable());
+        assert!(CleanupDisposition::ManualReview.is_actionable());
+        assert!(!CleanupDisposition::ManagedNoManualCleanup.is_actionable());
+        assert!(CleanupDisposition::Defer.is_actionable());
+        assert!(CleanupDisposition::InvestigateOrigin.is_actionable());
     }
 
     #[test]
@@ -2393,7 +2470,7 @@ mod tests {
                 });
         }
 
-        let report = build_report(
+        let mut report = build_report(
             "2026-08-09T00:00:00Z".to_owned(),
             observed_epoch,
             Path::new("/codex-home"),
@@ -2417,6 +2494,17 @@ mod tests {
             human.find("personal-aging").expect("personal row")
                 < human.find("plugin-recent").expect("plugin row")
         );
+
+        report.retain_actionable_items();
+
+        assert_eq!(report.item_view, SkillItemView::Actionable);
+        assert_eq!(report.items_returned, 1);
+        assert_eq!(report.items_omitted, 1);
+        assert_eq!(report.items.len(), 1);
+        assert_eq!(report.items[0].name, "personal-aging");
+        let human = format_human_report(&report);
+        assert!(human.contains("Items: 1 actionable returned, 1 omitted"));
+        assert!(!human.contains("plugin-recent"));
     }
 
     #[test]
@@ -2616,7 +2704,7 @@ mod tests {
         );
         let mut system = skill("system-skill", "/codex-home/skills/.system/system/SKILL.md");
         system.scope = "system".to_owned();
-        let report = build_report(
+        let mut report = build_report(
             "2026-08-09T00:00:00Z".to_owned(),
             observed_epoch,
             Path::new("/codex-home"),
@@ -2643,6 +2731,22 @@ mod tests {
             item.cleanup_disposition == CleanupDisposition::ManagedNoManualCleanup
         }));
         assert!(report.findings.is_empty());
+        assert_eq!(report.verdict, Verdict::BaselineOk);
+
+        report.apply_item_view(SkillItemView::All);
+
+        assert_eq!(report.item_view, SkillItemView::All);
+        assert_eq!(report.items_returned, 2);
+        assert_eq!(report.items_omitted, 0);
+        assert_eq!(report.items.len(), 2);
+
+        report.apply_item_view(SkillItemView::Actionable);
+
+        assert_eq!(report.item_view, SkillItemView::Actionable);
+        assert_eq!(report.items_returned, 0);
+        assert_eq!(report.items_omitted, 2);
+        assert!(report.items.is_empty());
+        assert_eq!(report.cleanup.managed_no_manual_cleanup, 2);
         assert_eq!(report.verdict, Verdict::BaselineOk);
     }
 

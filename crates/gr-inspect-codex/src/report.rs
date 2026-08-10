@@ -5,10 +5,11 @@ use serde::Serialize;
 use crate::{
     Verdict,
     agents::{AgentInspection, InstructionSource, ProjectTrust},
-    doctor::DoctorReport,
+    doctor::{DoctorCheck, DoctorReport},
 };
 
 pub(crate) const REPORT_SCHEMA_VERSION: u32 = 1;
+const NONINTERACTIVE_TERMINAL_SUMMARY: &str = "TERM=dumb - colors and cursor control are disabled";
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -47,6 +48,7 @@ impl ProjectTrustState {
 pub(crate) struct DoctorSummary {
     pub(crate) status: String,
     pub(crate) check_count: usize,
+    pub(crate) ignored_check_count: usize,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -196,6 +198,7 @@ pub(crate) struct CodexInspectionFacts<'a> {
 
 pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspectionReport {
     let mut findings = Vec::new();
+    let mut ignored_doctor_checks = 0;
     let schema_supported = facts.doctor.schema_version == REPORT_SCHEMA_VERSION;
     let checks_present = !facts.doctor.checks.is_empty();
 
@@ -222,6 +225,10 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
         if check.status == "ok" {
             continue;
         }
+        if is_noninteractive_terminal_limitation(key, check) {
+            ignored_doctor_checks += 1;
+            continue;
+        }
 
         findings.push(ReportFinding::new(
             format!("doctor.{key}"),
@@ -232,7 +239,9 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
         ));
     }
 
-    if facts.doctor.overall_status != "ok" && findings.is_empty() {
+    let ignored_overall_failure =
+        facts.doctor.overall_status == "fail" && ignored_doctor_checks > 0;
+    if facts.doctor.overall_status != "ok" && findings.is_empty() && !ignored_overall_failure {
         findings.push(ReportFinding::new(
             "doctor.overall_status",
             facts.doctor.overall_status.clone(),
@@ -242,6 +251,12 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
             ),
         ));
     }
+
+    let doctor_status = if findings.is_empty() {
+        "ok".to_owned()
+    } else {
+        facts.doctor.overall_status.clone()
+    };
 
     if facts.skill_catalog_error_count > 0 {
         findings.push(ReportFinding::new(
@@ -256,7 +271,7 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
 
     let verdict = if !schema_supported || !checks_present {
         Verdict::Incomplete
-    } else if facts.doctor.overall_status == "ok" && findings.is_empty() {
+    } else if findings.is_empty() {
         Verdict::BaselineOk
     } else {
         Verdict::Review
@@ -274,8 +289,9 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
         verdict,
         codex_version: facts.version.to_owned(),
         doctor: DoctorSummary {
-            status: facts.doctor.overall_status.clone(),
+            status: doctor_status,
             check_count: facts.doctor.checks.len(),
+            ignored_check_count: ignored_doctor_checks,
         },
         features: FeatureSummary {
             observed_rows: facts.feature_count,
@@ -310,10 +326,17 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
 fn skill_drilldowns() -> Vec<Drilldown> {
     vec![Drilldown {
         section: "skills".to_owned(),
-        argv: ["gr", "inspect", "codex", "skills", "--json"]
+        argv: ["gr", "inspect", "codex", "skills", "--actionable", "--json"]
             .map(str::to_owned)
             .to_vec(),
     }]
+}
+
+fn is_noninteractive_terminal_limitation(key: &str, check: &DoctorCheck) -> bool {
+    key == "terminal.env"
+        && check.id == "terminal.env"
+        && check.status == "fail"
+        && check.summary.as_deref() == Some(NONINTERACTIVE_TERMINAL_SUMMARY)
 }
 
 #[cfg(test)]
@@ -396,7 +419,137 @@ mod tests {
         assert_eq!(report.skills.by_origin.system, 6);
         assert_eq!(report.skills.by_origin.project, 0);
         assert_eq!(report.skills.catalog_errors, 0);
+        assert_eq!(report.doctor.status, "ok");
+        assert_eq!(report.doctor.ignored_check_count, 0);
+        assert_eq!(
+            report.drilldowns[0].argv,
+            ["gr", "inspect", "codex", "skills", "--actionable", "--json",]
+        );
         assert!(report.findings.is_empty());
+    }
+
+    #[test]
+    fn ignores_only_the_exact_noninteractive_terminal_limitation() {
+        let matching = crate::doctor::DoctorCheck {
+            id: "terminal.env".to_owned(),
+            status: "fail".to_owned(),
+            summary: Some(NONINTERACTIVE_TERMINAL_SUMMARY.to_owned()),
+        };
+        assert!(is_noninteractive_terminal_limitation(
+            "terminal.env",
+            &matching
+        ));
+
+        let cases = [
+            (
+                "terminal.other",
+                crate::doctor::DoctorCheck { ..matching.clone() },
+            ),
+            (
+                "terminal.env",
+                crate::doctor::DoctorCheck {
+                    id: "terminal.other".to_owned(),
+                    ..matching.clone()
+                },
+            ),
+            (
+                "terminal.env",
+                crate::doctor::DoctorCheck {
+                    status: "warning".to_owned(),
+                    ..matching.clone()
+                },
+            ),
+            (
+                "terminal.env",
+                crate::doctor::DoctorCheck {
+                    summary: Some("TERM=dumb - shell initialization failed".to_owned()),
+                    ..matching.clone()
+                },
+            ),
+            (
+                "terminal.env",
+                crate::doctor::DoctorCheck {
+                    summary: None,
+                    ..matching
+                },
+            ),
+        ];
+        for (key, check) in cases {
+            assert!(!is_noninteractive_terminal_limitation(key, &check));
+        }
+    }
+
+    #[test]
+    fn returns_baseline_ok_for_term_dumb_alone_but_preserves_other_failures() {
+        let terminal_check = crate::doctor::DoctorCheck {
+            id: "terminal.env".to_owned(),
+            status: "fail".to_owned(),
+            summary: Some(NONINTERACTIVE_TERMINAL_SUMMARY.to_owned()),
+        };
+        let agents = agents();
+        let doctor = DoctorReport {
+            schema_version: 1,
+            overall_status: "fail".to_owned(),
+            codex_version: "0.147.0".to_owned(),
+            checks: BTreeMap::from([("terminal.env".to_owned(), terminal_check.clone())]),
+        };
+
+        let report = synthesize_report(facts(&doctor, &agents));
+
+        assert_eq!(report.verdict, Verdict::BaselineOk);
+        assert_eq!(report.doctor.status, "ok");
+        assert_eq!(report.doctor.ignored_check_count, 1);
+        assert!(report.findings.is_empty());
+
+        let mut term_with_catalog_error = facts(&doctor, &agents);
+        term_with_catalog_error.skill_catalog_error_count = 1;
+        let report = synthesize_report(term_with_catalog_error);
+
+        assert_eq!(report.verdict, Verdict::Review);
+        assert_eq!(report.doctor.status, "ok");
+        assert_eq!(report.doctor.ignored_check_count, 1);
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].code, "skills.catalog");
+
+        let unexpected_overall = DoctorReport {
+            schema_version: 1,
+            overall_status: "fatal".to_owned(),
+            codex_version: "0.147.0".to_owned(),
+            checks: BTreeMap::from([("terminal.env".to_owned(), terminal_check.clone())]),
+        };
+        let report = synthesize_report(facts(&unexpected_overall, &agents));
+
+        assert_eq!(report.verdict, Verdict::Review);
+        assert_eq!(report.doctor.status, "fatal");
+        assert_eq!(report.doctor.ignored_check_count, 1);
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].code, "doctor.overall_status");
+
+        let doctor = DoctorReport {
+            checks: BTreeMap::from([
+                ("terminal.env".to_owned(), terminal_check),
+                (
+                    "network.provider_reachability".to_owned(),
+                    crate::doctor::DoctorCheck {
+                        id: "network.provider_reachability".to_owned(),
+                        status: "fail".to_owned(),
+                        summary: Some("provider endpoint is unreachable".to_owned()),
+                    },
+                ),
+            ]),
+            ..doctor
+        };
+
+        let report = synthesize_report(facts(&doctor, &agents));
+
+        assert_eq!(report.verdict, Verdict::Review);
+        assert_eq!(report.doctor.status, "fail");
+        assert_eq!(report.doctor.ignored_check_count, 1);
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(
+            report.findings[0].code,
+            "doctor.network.provider_reachability"
+        );
     }
 
     #[test]
@@ -481,6 +634,32 @@ mod tests {
 
         assert_eq!(report.verdict, Verdict::Review);
         assert_eq!(report.findings.len(), 1);
+    }
+
+    #[test]
+    fn preserves_an_unexplained_non_ok_overall_status() {
+        let doctor = DoctorReport {
+            schema_version: 1,
+            overall_status: "fail".to_owned(),
+            codex_version: "0.147.0".to_owned(),
+            checks: BTreeMap::from([(
+                "config.load".to_owned(),
+                crate::doctor::DoctorCheck {
+                    id: "config.load".to_owned(),
+                    status: "ok".to_owned(),
+                    summary: Some("config loaded".to_owned()),
+                },
+            )]),
+        };
+        let agents = agents();
+
+        let report = synthesize_report(facts(&doctor, &agents));
+
+        assert_eq!(report.verdict, Verdict::Review);
+        assert_eq!(report.doctor.status, "fail");
+        assert_eq!(report.doctor.ignored_check_count, 0);
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].code, "doctor.overall_status");
     }
 
     #[test]

@@ -3,6 +3,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 use gr_inspect_codex::{
     InspectionOutcome, SkillsInspectionOutcome, Verdict, inspect_codex as run_codex_inspection,
+    inspect_codex_skill_actions as run_codex_skill_actions_inspection,
     inspect_codex_skills as run_codex_skills_inspection,
 };
 
@@ -36,6 +37,8 @@ enum CodexSection {
     Skills {
         #[arg(long)]
         json: bool,
+        #[arg(long)]
+        actionable: bool,
     },
 }
 
@@ -52,14 +55,22 @@ fn main() -> ExitCode {
             target:
                 InspectTarget::Codex {
                     json: outer_json,
-                    section: Some(CodexSection::Skills { json: inner_json }),
+                    section:
+                        Some(CodexSection::Skills {
+                            json: inner_json,
+                            actionable,
+                        }),
                 },
-        } => inspect_codex_skills(outer_json || inner_json),
+        } => inspect_codex_skills(outer_json || inner_json, actionable),
     }
 }
 
-fn inspect_codex_skills(json: bool) -> ExitCode {
-    let outcome = run_codex_skills_inspection();
+fn inspect_codex_skills(json: bool, actionable: bool) -> ExitCode {
+    let outcome = if actionable {
+        run_codex_skill_actions_inspection()
+    } else {
+        run_codex_skills_inspection()
+    };
     let verdict = render_skills_outcome(json, &outcome);
 
     ExitCode::from(verdict.exit_code())
@@ -143,7 +154,10 @@ mod tests {
             cli.command,
             Command::Inspect {
                 target: InspectTarget::Codex {
-                    section: Some(CodexSection::Skills { json: true }),
+                    section: Some(CodexSection::Skills {
+                        json: true,
+                        actionable: false,
+                    }),
                     ..
                 }
             }
@@ -160,7 +174,30 @@ mod tests {
             Command::Inspect {
                 target: InspectTarget::Codex {
                     json: true,
-                    section: Some(CodexSection::Skills { json: false }),
+                    section: Some(CodexSection::Skills {
+                        json: false,
+                        actionable: false,
+                    }),
+                }
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_actionable_skills_drilldown() {
+        let cli =
+            Cli::try_parse_from(["gr", "inspect", "codex", "skills", "--actionable", "--json"])
+                .expect("command should parse");
+
+        assert!(matches!(
+            cli.command,
+            Command::Inspect {
+                target: InspectTarget::Codex {
+                    section: Some(CodexSection::Skills {
+                        json: true,
+                        actionable: true,
+                    }),
+                    ..
                 }
             }
         ));

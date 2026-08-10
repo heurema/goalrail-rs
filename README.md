@@ -46,6 +46,18 @@ same name remain separate. The scan has a 15-second ceiling; a bounded result
 sets `coverage.truncated` instead of silently extending the run. No usage cache
 or durable memory is written.
 
+Usage signals remain factual observations. Cleanup policy is exposed
+separately through `cleanupPolicy`, the `cleanup` count summary, and each
+item's `cleanupDisposition`. Plugin, system, and admin skills are
+`managed_no_manual_cleanup`; owner-managed recent skills are `keep`, aging or
+unobserved skills are `manual_review`, insufficient evidence is `defer`, and
+unknown ownership is `investigate_origin`. Findings use
+`skills.cleanup.review`, `skills.cleanup.deferred`, and
+`skills.cleanup.origin_unknown` for the actionable cases. This intentionally
+changes verdict semantics: stale managed skills no longer produce `REVIEW` by
+themselves, while owner-managed cleanup candidates, insufficient evidence, or
+unknown ownership still do.
+
 ## Design boundaries
 
 Goalrail is currently a modular monolith:

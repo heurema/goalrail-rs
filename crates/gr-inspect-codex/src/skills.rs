@@ -35,6 +35,8 @@ const EVIDENCE_LIMITATIONS: [&str; 2] = [
     "renamed_or_previous_version_manifest_paths_can_undercount",
     "inlined_skill_context_without_a_manifest_path_is_not_observed",
 ];
+const CLEANUP_POLICY: &str =
+    "plugin_system_and_admin_skills_are_managed_and_not_manual_cleanup_candidates";
 
 #[derive(Debug)]
 pub struct SkillsInspectionOutcome {
@@ -91,6 +93,8 @@ struct SkillsInspectionReport {
     evidence_limitations: [&'static str; 2],
     thresholds: SkillThresholds,
     summary: SkillUsageSummary,
+    cleanup_policy: &'static str,
+    cleanup: SkillCleanupSummary,
     items: Vec<SkillUsageItem>,
     findings: Vec<ReportFinding>,
 }
@@ -146,6 +150,16 @@ struct SkillUsageSummary {
     insufficient_history: usize,
 }
 
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SkillCleanupSummary {
+    keep: usize,
+    manual_review: usize,
+    managed_no_manual_cleanup: usize,
+    defer: usize,
+    investigate_origin: usize,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 enum SkillSignal {
@@ -153,6 +167,16 @@ enum SkillSignal {
     Aging,
     Unobserved,
     InsufficientHistory,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum CleanupDisposition {
+    Keep,
+    ManualReview,
+    ManagedNoManualCleanup,
+    Defer,
+    InvestigateOrigin,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -233,6 +257,28 @@ impl SkillSignal {
     }
 }
 
+impl CleanupDisposition {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Keep => "keep",
+            Self::ManualReview => "manual_review",
+            Self::ManagedNoManualCleanup => "managed_no_manual_cleanup",
+            Self::Defer => "defer",
+            Self::InvestigateOrigin => "investigate_origin",
+        }
+    }
+
+    const fn sort_rank(self) -> u8 {
+        match self {
+            Self::ManualReview => 0,
+            Self::InvestigateOrigin => 1,
+            Self::Defer => 2,
+            Self::ManagedNoManualCleanup => 3,
+            Self::Keep => 4,
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SkillUsageItem {
@@ -241,6 +287,7 @@ struct SkillUsageItem {
     manifest_path: PathBuf,
     origin: SkillOrigin,
     signal: SkillSignal,
+    cleanup_disposition: CleanupDisposition,
     last_observed_use_at: Option<String>,
     age_days: Option<u64>,
     observed_uses_in_window: usize,
@@ -1087,6 +1134,7 @@ fn build_report(
             evidence.history_through.as_ref().map(|value| value.1),
         );
     let mut summary = SkillUsageSummary::default();
+    let mut cleanup = SkillCleanupSummary::default();
     let mut items = Vec::with_capacity(skills.len());
     let origin_classifier = SkillOriginClassifier::new(codex_home);
 
@@ -1103,6 +1151,8 @@ fn build_report(
             None if history_sufficient => SkillSignal::Unobserved,
             None => SkillSignal::InsufficientHistory,
         };
+        let origin = origin_classifier.classify(&skill.path, &skill.scope);
+        let cleanup_disposition = cleanup_disposition(origin, signal);
         summary.total += 1;
         match signal {
             SkillSignal::Recent => summary.recent += 1,
@@ -1110,13 +1160,20 @@ fn build_report(
             SkillSignal::Unobserved => summary.unobserved += 1,
             SkillSignal::InsufficientHistory => summary.insufficient_history += 1,
         }
-        let origin = origin_classifier.classify(&skill.path, &skill.scope);
+        match cleanup_disposition {
+            CleanupDisposition::Keep => cleanup.keep += 1,
+            CleanupDisposition::ManualReview => cleanup.manual_review += 1,
+            CleanupDisposition::ManagedNoManualCleanup => cleanup.managed_no_manual_cleanup += 1,
+            CleanupDisposition::Defer => cleanup.defer += 1,
+            CleanupDisposition::InvestigateOrigin => cleanup.investigate_origin += 1,
+        }
         items.push(SkillUsageItem {
             name: skill.name,
             scope: skill.scope,
             origin,
             manifest_path: skill.path,
             signal,
+            cleanup_disposition,
             last_observed_use_at: last.map(|use_| use_.timestamp.clone()),
             age_days,
             observed_uses_in_window: observed.len(),
@@ -1126,9 +1183,10 @@ fn build_report(
     }
 
     items.sort_by(|left, right| {
-        left.signal
+        left.cleanup_disposition
             .sort_rank()
-            .cmp(&right.signal.sort_rank())
+            .cmp(&right.cleanup_disposition.sort_rank())
+            .then_with(|| left.signal.sort_rank().cmp(&right.signal.sort_rank()))
             .then_with(|| left.last_observed_epoch.cmp(&right.last_observed_epoch))
             .then_with(|| left.name.cmp(&right.name))
             .then_with(|| left.manifest_path.cmp(&right.manifest_path))
@@ -1148,20 +1206,40 @@ fn build_report(
             "the bounded scan was truncated or some catalog, directory, rollout, or record evidence could not be read",
         ));
     }
-    if summary.aging > 0 || summary.unobserved > 0 {
+    if cleanup.manual_review > 0 {
         findings.push(ReportFinding::new(
-            "skills.usage.review",
+            "skills.cleanup.review",
             "review",
             format!(
-                "{} aging and {} unobserved skills need review",
-                summary.aging, summary.unobserved
+                "{} owner-managed skills need manual cleanup review",
+                cleanup.manual_review
+            ),
+        ));
+    }
+    if cleanup.defer > 0 {
+        findings.push(ReportFinding::new(
+            "skills.cleanup.deferred",
+            "review",
+            format!(
+                "{} owner-managed skills lack sufficient history for cleanup",
+                cleanup.defer
+            ),
+        ));
+    }
+    if cleanup.investigate_origin > 0 {
+        findings.push(ReportFinding::new(
+            "skills.cleanup.origin_unknown",
+            "review",
+            format!(
+                "{} skills have unknown ownership; resolve origin before cleanup",
+                cleanup.investigate_origin
             ),
         ));
     }
     let verdict = if status == CoverageStatus::Complete
-        && summary.aging == 0
-        && summary.unobserved == 0
-        && summary.insufficient_history == 0
+        && cleanup.manual_review == 0
+        && cleanup.defer == 0
+        && cleanup.investigate_origin == 0
     {
         Verdict::BaselineOk
     } else {
@@ -1194,8 +1272,24 @@ fn build_report(
             unobserved_history_days: UNOBSERVED_HISTORY_DAYS,
         },
         summary,
+        cleanup_policy: CLEANUP_POLICY,
+        cleanup,
         items,
         findings,
+    }
+}
+
+const fn cleanup_disposition(origin: SkillOrigin, signal: SkillSignal) -> CleanupDisposition {
+    match origin {
+        SkillOrigin::Plugin | SkillOrigin::System | SkillOrigin::Admin => {
+            CleanupDisposition::ManagedNoManualCleanup
+        }
+        SkillOrigin::Unknown => CleanupDisposition::InvestigateOrigin,
+        SkillOrigin::Personal | SkillOrigin::Project => match signal {
+            SkillSignal::Recent => CleanupDisposition::Keep,
+            SkillSignal::Aging | SkillSignal::Unobserved => CleanupDisposition::ManualReview,
+            SkillSignal::InsufficientHistory => CleanupDisposition::Defer,
+        },
     }
 }
 
@@ -1374,12 +1468,26 @@ fn format_human_report(report: &SkillsInspectionReport) -> String {
         report.coverage.discovery_errors
     )
     .expect("writing to String");
-    writeln!(output, "SIGNAL\tUSES\tLAST OBSERVED\tORIGIN\tSCOPE\tSKILL")
-        .expect("writing to String");
+    writeln!(
+        output,
+        "Cleanup: {} manual review, {} managed no-manual-cleanup, {} keep, {} defer, {} investigate origin",
+        report.cleanup.manual_review,
+        report.cleanup.managed_no_manual_cleanup,
+        report.cleanup.keep,
+        report.cleanup.defer,
+        report.cleanup.investigate_origin
+    )
+    .expect("writing to String");
+    writeln!(
+        output,
+        "CLEANUP\tSIGNAL\tUSES\tLAST OBSERVED\tORIGIN\tSCOPE\tSKILL"
+    )
+    .expect("writing to String");
     for item in &report.items {
         writeln!(
             output,
-            "{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            item.cleanup_disposition.as_str(),
             item.signal.as_str(),
             item.observed_uses_in_window,
             item.last_observed_use_at.as_deref().unwrap_or("-"),
@@ -1761,6 +1869,12 @@ mod tests {
 
         assert_eq!(report.summary.recent, 1);
         assert_eq!(report.summary.total, 1);
+        assert_eq!(report.cleanup.keep, 1);
+        assert_eq!(report.cleanup.manual_review, 0);
+        assert_eq!(
+            report.items[0].cleanup_disposition,
+            CleanupDisposition::Keep
+        );
         assert_eq!(report.items[0].observed_uses_in_window, 2);
         assert!(report.findings.is_empty());
         assert_eq!(
@@ -1783,12 +1897,14 @@ mod tests {
             .to_pretty_json()
             .expect("complete outcome should serialize");
         assert!(json.contains(r#""kind": "skills""#));
+        assert!(json.contains(CLEANUP_POLICY));
         let human = outcome.to_human();
         assert!(human.contains(
             "Coverage: complete (1 scanned, 0 excluded current, 0 unreadable, 0 discovery errors)"
         ));
-        assert!(human.contains("SIGNAL\tUSES\tLAST OBSERVED\tORIGIN\tSCOPE\tSKILL"));
-        assert!(human.contains("recent\t2\t2026-08-08T00:00:01Z\tpersonal\tuser\texample"));
+        assert!(human.contains("Cleanup: 0 manual review, 0 managed no-manual-cleanup, 1 keep"));
+        assert!(human.contains("CLEANUP\tSIGNAL\tUSES\tLAST OBSERVED\tORIGIN\tSCOPE\tSKILL"));
+        assert!(human.contains("keep\trecent\t2\t2026-08-08T00:00:01Z\tpersonal\tuser\texample"));
     }
 
     #[test]
@@ -1818,6 +1934,76 @@ mod tests {
         for (signal, expected_label, expected_rank) in signals {
             assert_eq!(signal.as_str(), expected_label);
             assert_eq!(signal.sort_rank(), expected_rank);
+        }
+
+        let cleanup = [
+            (CleanupDisposition::ManualReview, "manual_review", 0),
+            (
+                CleanupDisposition::InvestigateOrigin,
+                "investigate_origin",
+                1,
+            ),
+            (CleanupDisposition::Defer, "defer", 2),
+            (
+                CleanupDisposition::ManagedNoManualCleanup,
+                "managed_no_manual_cleanup",
+                3,
+            ),
+            (CleanupDisposition::Keep, "keep", 4),
+        ];
+        for (disposition, expected_label, expected_rank) in cleanup {
+            assert_eq!(disposition.as_str(), expected_label);
+            assert_eq!(disposition.sort_rank(), expected_rank);
+        }
+    }
+
+    #[test]
+    fn classifies_cleanup_from_ownership_before_usage_signal() {
+        let cases = [
+            (
+                SkillOrigin::Plugin,
+                SkillSignal::Unobserved,
+                CleanupDisposition::ManagedNoManualCleanup,
+            ),
+            (
+                SkillOrigin::System,
+                SkillSignal::Aging,
+                CleanupDisposition::ManagedNoManualCleanup,
+            ),
+            (
+                SkillOrigin::Plugin,
+                SkillSignal::Recent,
+                CleanupDisposition::ManagedNoManualCleanup,
+            ),
+            (
+                SkillOrigin::Personal,
+                SkillSignal::Recent,
+                CleanupDisposition::Keep,
+            ),
+            (
+                SkillOrigin::Project,
+                SkillSignal::Aging,
+                CleanupDisposition::ManualReview,
+            ),
+            (
+                SkillOrigin::Admin,
+                SkillSignal::Unobserved,
+                CleanupDisposition::ManagedNoManualCleanup,
+            ),
+            (
+                SkillOrigin::Personal,
+                SkillSignal::InsufficientHistory,
+                CleanupDisposition::Defer,
+            ),
+            (
+                SkillOrigin::Unknown,
+                SkillSignal::Recent,
+                CleanupDisposition::InvestigateOrigin,
+            ),
+        ];
+
+        for (origin, signal, expected) in cases {
+            assert_eq!(cleanup_disposition(origin, signal), expected);
         }
     }
 
@@ -2085,6 +2271,7 @@ mod tests {
         assert_eq!(report.coverage.status, CoverageStatus::Partial);
         assert_eq!(report.summary.unobserved, 0);
         assert_eq!(report.summary.insufficient_history, 1);
+        assert_eq!(report.cleanup.defer, 1);
         assert_eq!(report.items[0].signal, SkillSignal::InsufficientHistory);
     }
 
@@ -2130,12 +2317,14 @@ mod tests {
         assert_eq!(report.summary.recent, 1);
         assert_eq!(report.summary.aging, 1);
         assert_eq!(report.summary.total, 2);
+        assert_eq!(report.cleanup.keep, 1);
+        assert_eq!(report.cleanup.manual_review, 1);
         assert_eq!(report.verdict, Verdict::Review);
         assert!(
             report
                 .findings
                 .iter()
-                .any(|finding| finding.code == "skills.usage.review")
+                .any(|finding| finding.code == "skills.cleanup.review")
         );
         assert_eq!(
             report
@@ -2149,9 +2338,84 @@ mod tests {
             report
                 .items
                 .iter()
+                .find(|item| item.name == "recent-boundary")
+                .map(|item| item.cleanup_disposition),
+            Some(CleanupDisposition::Keep)
+        );
+        assert_eq!(
+            report
+                .items
+                .iter()
                 .find(|item| item.name == "aging-boundary")
                 .map(|item| item.signal),
             Some(SkillSignal::Aging)
+        );
+        assert_eq!(
+            report
+                .items
+                .iter()
+                .find(|item| item.name == "aging-boundary")
+                .map(|item| item.cleanup_disposition),
+            Some(CleanupDisposition::ManualReview)
+        );
+    }
+
+    #[test]
+    fn sorts_manual_cleanup_review_before_managed_skills() {
+        let observed_epoch = parse_rfc3339_epoch("2026-08-09T00:00:00Z").expect("timestamp");
+        let personal = skill("personal-aging", "/skills/personal-aging/SKILL.md");
+        let plugin = skill(
+            "plugin-recent",
+            "/codex-home/plugins/cache/plugin-recent/SKILL.md",
+        );
+        let mut evidence = UsageEvidence {
+            rollouts_discovered: 1,
+            rollouts_scanned: 1,
+            ..UsageEvidence::default()
+        };
+        for (skill, days) in [(&personal, RECENT_DAYS + 1), (&plugin, 1)] {
+            let epoch = observed_epoch - days as i64 * SECONDS_PER_DAY;
+            evidence
+                .by_skill
+                .entry(SkillIdentity::from(skill))
+                .or_default()
+                .push(ObservedUse {
+                    key: ObservedUseKey {
+                        thread_id: "thread-1".to_owned(),
+                        turn_or_event: skill.name.clone(),
+                    },
+                    timestamp: format_rfc3339(epoch),
+                    epoch,
+                    evidence: SkillEvidenceRef {
+                        thread_id: "thread-1".to_owned(),
+                        turn_id: None,
+                    },
+                });
+        }
+
+        let report = build_report(
+            "2026-08-09T00:00:00Z".to_owned(),
+            observed_epoch,
+            Path::new("/codex-home"),
+            vec![plugin, personal],
+            evidence,
+            0,
+        );
+
+        assert_eq!(report.items[0].name, "personal-aging");
+        assert_eq!(
+            report.items[0].cleanup_disposition,
+            CleanupDisposition::ManualReview
+        );
+        assert_eq!(report.items[1].name, "plugin-recent");
+        assert_eq!(
+            report.items[1].cleanup_disposition,
+            CleanupDisposition::ManagedNoManualCleanup
+        );
+        let human = format_human_report(&report);
+        assert!(
+            human.find("personal-aging").expect("personal row")
+                < human.find("plugin-recent").expect("plugin row")
         );
     }
 
@@ -2304,12 +2568,13 @@ mod tests {
         assert_eq!(report.coverage.status, CoverageStatus::Complete);
         assert_eq!(report.summary.total, 1);
         assert_eq!(report.summary.unobserved, 1);
+        assert_eq!(report.cleanup.manual_review, 1);
         assert_eq!(report.verdict, Verdict::Review);
         assert!(
             report
                 .findings
                 .iter()
-                .any(|finding| finding.code == "skills.usage.review")
+                .any(|finding| finding.code == "skills.cleanup.review")
         );
     }
 
@@ -2336,8 +2601,84 @@ mod tests {
 
         assert_eq!(report.coverage.status, CoverageStatus::Complete);
         assert_eq!(report.summary.insufficient_history, 1);
+        assert_eq!(report.cleanup.defer, 1);
         assert_eq!(report.verdict, Verdict::Review);
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].code, "skills.cleanup.deferred");
+    }
+
+    #[test]
+    fn managed_stale_skills_are_not_manual_cleanup_candidates() {
+        let observed_epoch = parse_rfc3339_epoch("2026-08-09T00:00:00Z").expect("timestamp");
+        let plugin = skill(
+            "plugin-skill",
+            "/codex-home/plugins/cache/plugin-skill/SKILL.md",
+        );
+        let mut system = skill("system-skill", "/codex-home/skills/.system/system/SKILL.md");
+        system.scope = "system".to_owned();
+        let report = build_report(
+            "2026-08-09T00:00:00Z".to_owned(),
+            observed_epoch,
+            Path::new("/codex-home"),
+            vec![plugin, system],
+            UsageEvidence {
+                history_from: Some((
+                    format_rfc3339(
+                        observed_epoch - UNOBSERVED_HISTORY_DAYS as i64 * SECONDS_PER_DAY,
+                    ),
+                    observed_epoch - UNOBSERVED_HISTORY_DAYS as i64 * SECONDS_PER_DAY,
+                )),
+                history_through: Some((format_rfc3339(observed_epoch), observed_epoch)),
+                rollouts_discovered: 1,
+                rollouts_scanned: 1,
+                ..UsageEvidence::default()
+            },
+            0,
+        );
+
+        assert_eq!(report.summary.unobserved, 2);
+        assert_eq!(report.cleanup.managed_no_manual_cleanup, 2);
+        assert_eq!(report.cleanup.manual_review, 0);
+        assert!(report.items.iter().all(|item| {
+            item.cleanup_disposition == CleanupDisposition::ManagedNoManualCleanup
+        }));
         assert!(report.findings.is_empty());
+        assert_eq!(report.verdict, Verdict::BaselineOk);
+    }
+
+    #[test]
+    fn unknown_origin_requires_investigation_before_cleanup() {
+        let observed_epoch = parse_rfc3339_epoch("2026-08-09T00:00:00Z").expect("timestamp");
+        let mut unknown = skill("unknown", "/unknown/skills/unknown/SKILL.md");
+        unknown.scope = "future".to_owned();
+        let report = build_report(
+            "2026-08-09T00:00:00Z".to_owned(),
+            observed_epoch,
+            Path::new("/codex-home"),
+            vec![unknown],
+            UsageEvidence {
+                history_from: Some((
+                    format_rfc3339(
+                        observed_epoch - UNOBSERVED_HISTORY_DAYS as i64 * SECONDS_PER_DAY,
+                    ),
+                    observed_epoch - UNOBSERVED_HISTORY_DAYS as i64 * SECONDS_PER_DAY,
+                )),
+                history_through: Some((format_rfc3339(observed_epoch), observed_epoch)),
+                rollouts_discovered: 1,
+                rollouts_scanned: 1,
+                ..UsageEvidence::default()
+            },
+            0,
+        );
+
+        assert_eq!(report.cleanup.investigate_origin, 1);
+        assert_eq!(
+            report.items[0].cleanup_disposition,
+            CleanupDisposition::InvestigateOrigin
+        );
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].code, "skills.cleanup.origin_unknown");
+        assert_eq!(report.verdict, Verdict::Review);
     }
 
     #[test]

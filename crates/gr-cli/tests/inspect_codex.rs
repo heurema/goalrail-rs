@@ -117,12 +117,19 @@ fn reports_live_skill_catalog_usage_and_excludes_the_current_thread() {
     );
     assert_eq!(report["summary"]["total"], 1);
     assert_eq!(report["summary"]["recent"], 1);
+    assert_eq!(
+        report["cleanupPolicy"],
+        "plugin_system_and_admin_skills_are_managed_and_not_manual_cleanup_candidates"
+    );
+    assert_eq!(report["cleanup"]["keep"], 1);
+    assert_eq!(report["cleanup"]["manualReview"], 0);
     assert_eq!(report["coverage"]["rolloutsDiscovered"], 2);
     assert_eq!(report["coverage"]["rolloutsScanned"], 1);
     assert_eq!(report["coverage"]["rolloutsExcludedCurrent"], 1);
     assert_eq!(report["coverage"]["discoveryErrors"], 0);
     assert_eq!(report["items"][0]["observedUsesInWindow"], 1);
     assert_eq!(report["items"][0]["origin"], "personal");
+    assert_eq!(report["items"][0]["cleanupDisposition"], "keep");
     assert_eq!(
         report["items"][0]["manifestPath"],
         "/fixture/example/SKILL.md"

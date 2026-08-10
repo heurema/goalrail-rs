@@ -104,18 +104,18 @@ without publishing it:
 
 ```bash
 mise run release:test
-mise run release:prepare -- 0.1.0
-mise run release:check -- 0.1.0
+mise run release:prepare -- 0.2.0
+mise run release:check -- 0.2.0
 ```
 
-The generated bundle under `dist/v0.1.0/` contains the binary and MIT license
+The generated bundle under `dist/v0.2.0/` contains the binary and MIT license
 archive, its SHA-256, a release manifest, and a rendered Homebrew formula.
 `dist/` is ignored and is never a source of truth.
 
 Before any public release, run the read-only source gate:
 
 ```bash
-mise run release:preflight -- 0.1.0
+mise run release:preflight -- 0.2.0
 ```
 
 It fails closed unless the version matches, the checkout is clean and tagged,

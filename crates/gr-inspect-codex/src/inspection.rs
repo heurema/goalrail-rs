@@ -7,6 +7,7 @@ use crate::{
     marketplaces::{MarketplaceProbe, probe_marketplaces},
     mcp::{McpProbe, probe_mcp},
     plugins::{PluginProbe, probe_plugins},
+    skills::{ActiveSkillSummary, inspect_active_skills},
 };
 
 #[derive(Debug)]
@@ -17,6 +18,7 @@ pub(crate) struct InspectionProbes {
     pub(crate) marketplaces: io::Result<MarketplaceProbe>,
     pub(crate) mcp: io::Result<McpProbe>,
     pub(crate) agents: io::Result<AgentInspection>,
+    pub(crate) skills: io::Result<ActiveSkillSummary>,
 }
 
 pub(crate) fn probe_inspection() -> InspectionProbes {
@@ -26,6 +28,7 @@ pub(crate) fn probe_inspection() -> InspectionProbes {
     let marketplaces_worker = thread::spawn(probe_marketplaces);
     let mcp_worker = thread::spawn(probe_mcp);
     let agents_worker = thread::spawn(inspect_current_agents);
+    let skills_worker = thread::spawn(inspect_active_skills);
 
     let doctor = join_worker(doctor_worker, "doctor");
     let features = join_worker(features_worker, "features");
@@ -33,6 +36,7 @@ pub(crate) fn probe_inspection() -> InspectionProbes {
     let marketplaces = join_worker(marketplaces_worker, "marketplaces");
     let mcp = join_worker(mcp_worker, "mcp");
     let agents = join_worker(agents_worker, "agents");
+    let skills = join_worker(skills_worker, "skills");
 
     InspectionProbes {
         doctor,
@@ -41,6 +45,7 @@ pub(crate) fn probe_inspection() -> InspectionProbes {
         marketplaces,
         mcp,
         agents,
+        skills,
     }
 }
 

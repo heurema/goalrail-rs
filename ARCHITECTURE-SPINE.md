@@ -70,13 +70,15 @@ flowchart LR
 
 - AD-1: `gr` parses the command, invokes `inspect_codex`, renders the opaque
   outcome, and maps its verdict to an exit code. It does not access probes.
-- AD-2: `gr-inspect-codex::use_case` owns probe sequencing, failure
-  classification, outcome construction, and report formatting.
+- AD-2: the summary and skills use cases inside `gr-inspect-codex` own probe
+  sequencing, failure classification, outcome construction, and report
+  formatting.
 - AD-3: Cargo metadata shows the single owned dependency edge
   `gr -> gr-inspect-codex`.
-- AD-4: the library facade exports only `inspect_codex`, `InspectionOutcome`,
-  and `Verdict`. Probe and report internals are `pub(crate)`, and
-  `#![deny(unreachable_pub)]` rejects accidental unreachable public items.
+- AD-4: the library facade exports the summary and skills inspection use cases,
+  their opaque outcomes, and `Verdict`. Probe and report internals are
+  `pub(crate)`, and `#![deny(unreachable_pub)]` rejects accidental unreachable
+  public items.
 
 The compiler and pre-push Clippy check enforce visibility and dependency
 validity. Unit and CLI integration tests protect the observable inspection

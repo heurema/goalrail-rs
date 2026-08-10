@@ -7,9 +7,10 @@ use crate::{
     inspection::{InspectionProbes, probe_inspection},
     probe_version,
     report::{
-        CodexFailureReport, CodexInspectionFacts, CodexInspectionReport, ReportFinding,
+        CodexFailureReport, CodexInspectionFacts, CodexInspectionReport, ReportFinding, ReportKind,
         synthesize_report,
     },
+    skills::ActiveSkillSummary,
 };
 
 #[derive(Debug)]
@@ -19,7 +20,7 @@ pub struct InspectionOutcome {
 
 #[derive(Debug)]
 enum OutcomeReport {
-    Complete(CodexInspectionReport),
+    Complete(Box<CodexInspectionReport>),
     Failure(CodexFailureReport),
 }
 
@@ -384,17 +385,14 @@ fn inspect_agents(
     probes: &InspectionProbes,
 ) -> InspectionOutcome {
     match &probes.agents {
-        Ok(agents) => complete(synthesize_report(CodexInspectionFacts {
-            version: summary.version,
-            doctor: summary.doctor,
-            feature_count: summary.feature_count,
-            installed_plugin_count: summary.installed_plugin_count,
-            enabled_plugin_count: summary.enabled_plugin_count,
+        Ok(agents) => inspect_skills(
+            summary,
             marketplace_count,
             mcp_count,
             enabled_mcp_count,
             agents,
-        })),
+            probes,
+        ),
         Err(error) => failure(
             Verdict::Incomplete,
             "probe.instructions.failed",
@@ -404,9 +402,45 @@ fn inspect_agents(
     }
 }
 
+fn inspect_skills(
+    summary: InspectionSummary<'_>,
+    marketplace_count: usize,
+    mcp_count: usize,
+    enabled_mcp_count: usize,
+    agents: &crate::agents::AgentInspection,
+    probes: &InspectionProbes,
+) -> InspectionOutcome {
+    match &probes.skills {
+        Ok(ActiveSkillSummary {
+            active,
+            by_origin,
+            catalog_errors,
+        }) => complete(synthesize_report(CodexInspectionFacts {
+            version: summary.version,
+            doctor: summary.doctor,
+            feature_count: summary.feature_count,
+            installed_plugin_count: summary.installed_plugin_count,
+            enabled_plugin_count: summary.enabled_plugin_count,
+            active_skill_count: *active,
+            skill_origins: *by_origin,
+            skill_catalog_error_count: *catalog_errors,
+            marketplace_count,
+            mcp_count,
+            enabled_mcp_count,
+            agents,
+        })),
+        Err(error) => failure(
+            Verdict::Incomplete,
+            "probe.skills.failed",
+            "failed",
+            format!("failed to read the active Codex skills catalog: {error}"),
+        ),
+    }
+}
+
 fn complete(report: CodexInspectionReport) -> InspectionOutcome {
     InspectionOutcome {
-        report: OutcomeReport::Complete(report),
+        report: OutcomeReport::Complete(Box::new(report)),
     }
 }
 
@@ -418,6 +452,7 @@ fn failure(
 ) -> InspectionOutcome {
     InspectionOutcome {
         report: OutcomeReport::Failure(CodexFailureReport::new(
+            ReportKind::Summary,
             verdict,
             ReportFinding::new(code, status, message),
         )),
@@ -451,6 +486,23 @@ fn format_human_report(report: &CodexInspectionReport) -> String {
         output,
         "Codex plugins: {} installed, {} enabled",
         report.plugins.installed, report.plugins.enabled
+    )
+    .expect("writing to String");
+    writeln!(
+        output,
+        "Codex skills: {} active ({} catalog errors)",
+        report.skills.active, report.skills.catalog_errors
+    )
+    .expect("writing to String");
+    writeln!(
+        output,
+        "  origins: personal {}, plugin {}, system {}, project {}, admin {}, unknown {}",
+        report.skills.by_origin.personal,
+        report.skills.by_origin.plugin,
+        report.skills.by_origin.system,
+        report.skills.by_origin.project,
+        report.skills.by_origin.admin,
+        report.skills.by_origin.unknown
     )
     .expect("writing to String");
     writeln!(
@@ -497,6 +549,15 @@ fn format_human_report(report: &CodexInspectionReport) -> String {
         };
         writeln!(output, "  {scope}: {}", source.path.display()).expect("writing to String");
     }
+    for drilldown in &report.drilldowns {
+        writeln!(
+            output,
+            "Codex {} details: {}",
+            drilldown.section,
+            drilldown.argv.join(" ")
+        )
+        .expect("writing to String");
+    }
     writeln!(output, "Verdict: {}", report.verdict.as_str()).expect("writing to String");
     if !report.findings.is_empty() {
         writeln!(output, "Findings:").expect("writing to String");
@@ -527,6 +588,8 @@ mod tests {
         marketplaces::MarketplaceProbe,
         mcp::McpProbe,
         plugins::PluginProbe,
+        report::SkillOriginSummary,
+        skills::ActiveSkillSummary,
     };
 
     use super::*;
@@ -594,6 +657,14 @@ mod tests {
                     project_trust: Some(ProjectTrust::Trusted),
                     project_config_paths: vec![PathBuf::from("/repo/.codex/config.toml")],
                 },
+            }),
+            skills: Ok(ActiveSkillSummary {
+                active: 1,
+                by_origin: SkillOriginSummary {
+                    personal: 1,
+                    ..SkillOriginSummary::default()
+                },
+                catalog_errors: 0,
             }),
         }
     }
@@ -700,7 +771,7 @@ mod tests {
         let OutcomeReport::Complete(report) = outcome.report else {
             panic!("expected complete outcome");
         };
-        report
+        *report
     }
 
     #[test]
@@ -879,6 +950,11 @@ mod tests {
         assert!(output.contains("Codex version: codex-cli 0.147.0"));
         assert!(output.contains("Codex features: observed (2 rows)"));
         assert!(output.contains("Codex plugins: 2 installed, 1 enabled"));
+        assert!(output.contains("Codex skills: 1 active (0 catalog errors)"));
+        assert!(
+            output
+                .contains("origins: personal 1, plugin 0, system 0, project 0, admin 0, unknown 0")
+        );
         assert!(output.contains("Codex marketplaces: 1 configured"));
         assert!(output.contains("Codex MCP: 2 configured, 1 enabled"));
         assert!(output.contains("Codex project: /repo (trusted)"));

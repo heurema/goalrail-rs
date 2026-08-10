@@ -1,7 +1,10 @@
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use gr_inspect_codex::{InspectionOutcome, Verdict, inspect_codex as run_codex_inspection};
+use gr_inspect_codex::{
+    InspectionOutcome, SkillsInspectionOutcome, Verdict, inspect_codex as run_codex_inspection,
+    inspect_codex_skills as run_codex_skills_inspection,
+};
 
 #[derive(Debug, Parser)]
 #[command(name = "gr", version, about = "Goalrail command-line interface")]
@@ -23,15 +26,43 @@ enum InspectTarget {
     Codex {
         #[arg(long)]
         json: bool,
+        #[command(subcommand)]
+        section: Option<CodexSection>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum CodexSection {
+    Skills {
+        #[arg(long)]
+        json: bool,
     },
 }
 
 fn main() -> ExitCode {
     match Cli::parse().command {
         Command::Inspect {
-            target: InspectTarget::Codex { json },
+            target:
+                InspectTarget::Codex {
+                    json,
+                    section: None,
+                },
         } => inspect_codex(json),
+        Command::Inspect {
+            target:
+                InspectTarget::Codex {
+                    json: outer_json,
+                    section: Some(CodexSection::Skills { json: inner_json }),
+                },
+        } => inspect_codex_skills(outer_json || inner_json),
     }
+}
+
+fn inspect_codex_skills(json: bool) -> ExitCode {
+    let outcome = run_codex_skills_inspection();
+    let verdict = render_skills_outcome(json, &outcome);
+
+    ExitCode::from(verdict.exit_code())
 }
 
 fn inspect_codex(json: bool) -> ExitCode {
@@ -39,6 +70,27 @@ fn inspect_codex(json: bool) -> ExitCode {
     let verdict = render_outcome(json, &outcome);
 
     ExitCode::from(verdict.exit_code())
+}
+
+fn render_skills_outcome(json: bool, outcome: &SkillsInspectionOutcome) -> Verdict {
+    if json {
+        match outcome.to_pretty_json() {
+            Ok(output) => println!("{output}"),
+            Err(error) => {
+                eprintln!("gr inspect codex skills: failed to serialize JSON report: {error}");
+                return Verdict::Incomplete;
+            }
+        }
+    } else {
+        let output = outcome.to_human();
+        if outcome.is_failure() {
+            eprintln!("gr inspect codex skills: {output}");
+        } else {
+            print!("{output}");
+        }
+    }
+
+    outcome.verdict()
 }
 
 fn render_outcome(json: bool, outcome: &InspectionOutcome) -> Verdict {
@@ -74,7 +126,42 @@ mod tests {
         assert!(matches!(
             cli.command,
             Command::Inspect {
-                target: InspectTarget::Codex { json: true }
+                target: InspectTarget::Codex {
+                    json: true,
+                    section: None
+                }
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_skills_drilldown_with_json_output() {
+        let cli = Cli::try_parse_from(["gr", "inspect", "codex", "skills", "--json"])
+            .expect("command should parse");
+
+        assert!(matches!(
+            cli.command,
+            Command::Inspect {
+                target: InspectTarget::Codex {
+                    section: Some(CodexSection::Skills { json: true }),
+                    ..
+                }
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_skills_drilldown_with_outer_json_output() {
+        let cli = Cli::try_parse_from(["gr", "inspect", "codex", "--json", "skills"])
+            .expect("command should parse");
+
+        assert!(matches!(
+            cli.command,
+            Command::Inspect {
+                target: InspectTarget::Codex {
+                    json: true,
+                    section: Some(CodexSection::Skills { json: false }),
+                }
             }
         ));
     }

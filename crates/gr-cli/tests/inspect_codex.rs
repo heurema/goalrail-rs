@@ -71,6 +71,70 @@ fn emits_json_and_distinct_exit_codes_for_all_verdicts() {
 }
 
 #[test]
+fn reports_live_skill_catalog_usage_and_excludes_the_current_thread() {
+    let tree = TestDirectory::new();
+    let fake_bin = tree.directory("fake-bin");
+    let codex_home = tree.directory("codex-home");
+    let project = tree.directory("project");
+    tree.directory("project/.git");
+    tree.file(
+        "codex-home/sessions/2999/01/rollout-2999-01-01T00-00-00-old-thread.jsonl",
+        concat!(
+            "{\"timestamp\":\"2999-01-01T00:00:00Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\"old-thread\"}}\n",
+            "{\"timestamp\":\"2999-01-01T00:00:01Z\",\"type\":\"turn_context\",\"payload\":{\"turn_id\":\"turn-1\"}}\n",
+            "{\"timestamp\":\"2999-01-01T00:00:02Z\",\"type\":\"response_item\",\"payload\":{\"type\":\"custom_tool_call\",\"input\":\"cat /fixture/example/SKILL.md\"}}\n"
+        ),
+    );
+    tree.file(
+        "codex-home/sessions/2999/01/rollout-2999-01-01T00-00-00-current-alias.jsonl",
+        concat!(
+            "{\"timestamp\":\"2999-01-01T00:00:00Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\"current-thread\"}}\n",
+            "{\"timestamp\":\"2999-01-01T00:00:03Z\",\"type\":\"response_item\",\"payload\":{\"type\":\"custom_tool_call\",\"input\":\"cat /fixture/example/SKILL.md\"}}\n"
+        ),
+    );
+    write_fake_codex(&fake_bin);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_gr"))
+        .args(["inspect", "codex", "--json", "skills"])
+        .current_dir(&project)
+        .env("PATH", &fake_bin)
+        .env("CODEX_HOME", &codex_home)
+        .env("CODEX_THREAD_ID", "current-thread")
+        .output()
+        .expect("gr should run");
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
+    let stderr = String::from_utf8(output.stderr).expect("stderr should be UTF-8");
+
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    let report: serde_json::Value =
+        serde_json::from_str(&stdout).expect("skills output should be JSON");
+    assert_eq!(report["schemaVersion"], 1);
+    assert_eq!(report["kind"], "skills");
+    assert_eq!(report["countingBasis"], "unique_thread_turns");
+    assert_eq!(
+        report["evidenceLimitations"].as_array().map(Vec::len),
+        Some(2)
+    );
+    assert_eq!(report["summary"]["total"], 1);
+    assert_eq!(report["summary"]["recent"], 1);
+    assert_eq!(report["coverage"]["rolloutsDiscovered"], 2);
+    assert_eq!(report["coverage"]["rolloutsScanned"], 1);
+    assert_eq!(report["coverage"]["rolloutsExcludedCurrent"], 1);
+    assert_eq!(report["coverage"]["discoveryErrors"], 0);
+    assert_eq!(report["items"][0]["observedUsesInWindow"], 1);
+    assert_eq!(report["items"][0]["origin"], "personal");
+    assert_eq!(
+        report["items"][0]["manifestPath"],
+        "/fixture/example/SKILL.md"
+    );
+    assert_eq!(
+        report["items"][0]["lastObservedUseAt"],
+        "2999-01-01T00:00:02Z"
+    );
+    assert_eq!(report["items"][0]["lastEvidence"]["threadId"], "old-thread");
+}
+
+#[test]
 fn rejects_clean_doctor_json_from_abnormal_termination() {
     let tree = TestDirectory::new();
     let fake_bin = tree.directory("fake-bin");
@@ -133,6 +197,7 @@ fn fails_closed_at_every_probe_boundary() {
         ("marketplaces-malformed", "probe.marketplaces.invalid_json"),
         ("mcp-fail", "probe.mcp.failed"),
         ("mcp-malformed", "probe.mcp.invalid_json"),
+        ("skills-fail", "probe.skills.failed"),
         (
             "doctor-malformed-and-plugins-fail",
             "probe.doctor.invalid_json",
@@ -203,6 +268,15 @@ fn reports_project_and_instruction_sources_from_the_fixture() {
     assert!(stdout.contains(&project.display().to_string()));
     assert!(stdout.contains(&agents.display().to_string()));
     assert!(stdout.contains(r#""scope": "project""#));
+    assert!(stdout.contains(r#""kind": "summary""#));
+    assert!(stdout.contains(r#""skills": {"#));
+    assert!(stdout.contains(r#""active": 1"#));
+    assert!(stdout.contains(r#""byOrigin": {"#));
+    assert!(stdout.contains(r#""personal": 1"#));
+    assert!(stdout.contains(r#""project": 0"#));
+    assert!(stdout.contains(r#""catalogErrors": 0"#));
+    assert!(stdout.contains(r#""section": "skills""#));
+    assert!(stdout.contains(r#""inspect""#));
 }
 
 #[test]
@@ -334,6 +408,15 @@ case "$1" in
       mcp-malformed) printf '%s\n' '{}' ;;
       *) printf '%s\n' '[]' ;;
     esac
+    ;;
+  app-server)
+    case "$FAKE_CASE" in
+      skills-fail) exit 7 ;;
+    esac
+    read -r initialize_request
+    printf '{"id":1,"result":{"codexHome":"%s"}}\n' "$CODEX_HOME"
+    read -r skills_request
+    printf '{"id":2,"result":{"data":[{"cwd":"%s","skills":[{"name":"example","path":"/fixture/example/SKILL.md","scope":"user","enabled":true}],"errors":[]}]}}\n' "$PWD"
     ;;
   *)
     exit 9

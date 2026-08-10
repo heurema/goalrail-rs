@@ -110,12 +110,14 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "gr-inspect-codex",
+ "serde_json",
 ]
 
 [[package]]
 name = "gr-inspect-codex"
 version = "0.1.0"
 dependencies = [
+ "memchr",
  "serde",
  "serde_json",
  "toml",

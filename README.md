@@ -13,11 +13,13 @@ evidence as success.
 ```bash
 cargo run -p gr -- inspect codex
 cargo run -p gr -- inspect codex --json
+cargo run -p gr -- inspect codex skills --json
 ```
 
 `gr inspect codex` checks the available Codex diagnostics, features,
-instructions, plugins, MCP configuration, marketplaces, and relevant
-project trust state. It returns one of four verdicts:
+instructions, plugins, the active skill count, MCP configuration,
+marketplaces, and relevant project trust state. It returns one of four
+verdicts:
 
 | Verdict | Exit code | Meaning |
 | --- | ---: | --- |
@@ -27,6 +29,22 @@ project trust state. It returns one of four verdicts:
 | `BLOCKED` | 4 | Codex was unavailable or could not be executed. |
 
 These verdicts are Goalrail policy, not native OpenAI classifications.
+
+The summary refreshes the active skill count, breaks it down by ownership
+origin, and advertises supported drilldowns without running their heavier
+evidence scans.
+`gr inspect codex skills --json` refreshes the active catalog
+through Codex `skills/list`, then scans retained rollout files for exact skill
+manifest paths in tool calls and counts at most one observation per task turn.
+It excludes the current Codex task, reports the observed history window,
+partial-read counters, and known undercounting limitations, and never calls an
+unobserved skill "unused". Each item includes its manifest path and classifies
+its ownership origin as system, plugin, personal, project, admin, or unknown so
+agents do not treat plugin-managed skills as personal cleanup candidates. The
+item identity is `(name, manifestPath)`, so project and global skills with the
+same name remain separate. The scan has a 15-second ceiling; a bounded result
+sets `coverage.truncated` instead of silently extending the run. No usage cache
+or durable memory is written.
 
 ## Design boundaries
 

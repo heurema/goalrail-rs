@@ -8,7 +8,21 @@ use crate::{
     doctor::DoctorReport,
 };
 
-const REPORT_SCHEMA_VERSION: u32 = 1;
+pub(crate) const REPORT_SCHEMA_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum ReportKind {
+    Summary,
+    Skills,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Drilldown {
+    pub(crate) section: String,
+    pub(crate) argv: Vec<String>,
+}
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -46,6 +60,25 @@ pub(crate) struct FeatureSummary {
 pub(crate) struct PluginSummary {
     pub(crate) installed: usize,
     pub(crate) enabled: usize,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SkillSummary {
+    pub(crate) active: usize,
+    pub(crate) by_origin: SkillOriginSummary,
+    pub(crate) catalog_errors: usize,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SkillOriginSummary {
+    pub(crate) personal: usize,
+    pub(crate) plugin: usize,
+    pub(crate) system: usize,
+    pub(crate) project: usize,
+    pub(crate) admin: usize,
+    pub(crate) unknown: usize,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -95,15 +128,24 @@ impl ReportFinding {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CodexFailureReport {
     pub(crate) schema_version: u32,
+    pub(crate) kind: ReportKind,
     pub(crate) verdict: Verdict,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) drilldowns: Vec<Drilldown>,
     pub(crate) findings: Vec<ReportFinding>,
 }
 
 impl CodexFailureReport {
-    pub(crate) fn new(verdict: Verdict, finding: ReportFinding) -> Self {
+    pub(crate) fn new(kind: ReportKind, verdict: Verdict, finding: ReportFinding) -> Self {
         Self {
             schema_version: REPORT_SCHEMA_VERSION,
+            kind,
             verdict,
+            drilldowns: if kind == ReportKind::Summary {
+                skill_drilldowns()
+            } else {
+                Vec::new()
+            },
             findings: vec![finding],
         }
     }
@@ -117,14 +159,17 @@ impl CodexFailureReport {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CodexInspectionReport {
     pub(crate) schema_version: u32,
+    pub(crate) kind: ReportKind,
     pub(crate) verdict: Verdict,
     pub(crate) codex_version: String,
     pub(crate) doctor: DoctorSummary,
     pub(crate) features: FeatureSummary,
     pub(crate) plugins: PluginSummary,
+    pub(crate) skills: SkillSummary,
     pub(crate) marketplaces: CountSummary,
     pub(crate) mcp: McpSummary,
     pub(crate) project: ProjectSummary,
+    pub(crate) drilldowns: Vec<Drilldown>,
     pub(crate) findings: Vec<ReportFinding>,
 }
 
@@ -140,6 +185,9 @@ pub(crate) struct CodexInspectionFacts<'a> {
     pub(crate) feature_count: usize,
     pub(crate) installed_plugin_count: usize,
     pub(crate) enabled_plugin_count: usize,
+    pub(crate) active_skill_count: usize,
+    pub(crate) skill_origins: SkillOriginSummary,
+    pub(crate) skill_catalog_error_count: usize,
     pub(crate) marketplace_count: usize,
     pub(crate) mcp_count: usize,
     pub(crate) enabled_mcp_count: usize,
@@ -195,6 +243,17 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
         ));
     }
 
+    if facts.skill_catalog_error_count > 0 {
+        findings.push(ReportFinding::new(
+            "skills.catalog",
+            "partial",
+            format!(
+                "Codex skills catalog reported {} errors",
+                facts.skill_catalog_error_count
+            ),
+        ));
+    }
+
     let verdict = if !schema_supported || !checks_present {
         Verdict::Incomplete
     } else if facts.doctor.overall_status == "ok" && findings.is_empty() {
@@ -211,6 +270,7 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
 
     CodexInspectionReport {
         schema_version: REPORT_SCHEMA_VERSION,
+        kind: ReportKind::Summary,
         verdict,
         codex_version: facts.version.to_owned(),
         doctor: DoctorSummary {
@@ -223,6 +283,11 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
         plugins: PluginSummary {
             installed: facts.installed_plugin_count,
             enabled: facts.enabled_plugin_count,
+        },
+        skills: SkillSummary {
+            active: facts.active_skill_count,
+            by_origin: facts.skill_origins,
+            catalog_errors: facts.skill_catalog_error_count,
         },
         marketplaces: CountSummary {
             configured: facts.marketplace_count,
@@ -237,8 +302,18 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
             config_layers: facts.agents.discovery.project_config_paths.clone(),
             instruction_sources: facts.agents.sources.clone(),
         },
+        drilldowns: skill_drilldowns(),
         findings,
     }
+}
+
+fn skill_drilldowns() -> Vec<Drilldown> {
+    vec![Drilldown {
+        section: "skills".to_owned(),
+        argv: ["gr", "inspect", "codex", "skills", "--json"]
+            .map(str::to_owned)
+            .to_vec(),
+    }]
 }
 
 #[cfg(test)]
@@ -278,6 +353,16 @@ mod tests {
             feature_count: 10,
             installed_plugin_count: 2,
             enabled_plugin_count: 1,
+            active_skill_count: 29,
+            skill_origins: SkillOriginSummary {
+                personal: 12,
+                plugin: 11,
+                system: 6,
+                project: 0,
+                admin: 0,
+                unknown: 0,
+            },
+            skill_catalog_error_count: 0,
             marketplace_count: 1,
             mcp_count: 3,
             enabled_mcp_count: 2,
@@ -305,7 +390,40 @@ mod tests {
         let report = synthesize_report(facts(&doctor, &agents));
 
         assert_eq!(report.verdict, Verdict::BaselineOk);
+        assert_eq!(report.skills.active, 29);
+        assert_eq!(report.skills.by_origin.personal, 12);
+        assert_eq!(report.skills.by_origin.plugin, 11);
+        assert_eq!(report.skills.by_origin.system, 6);
+        assert_eq!(report.skills.by_origin.project, 0);
+        assert_eq!(report.skills.catalog_errors, 0);
         assert!(report.findings.is_empty());
+    }
+
+    #[test]
+    fn returns_review_when_the_skill_catalog_is_partial() {
+        let doctor = DoctorReport {
+            schema_version: 1,
+            overall_status: "ok".to_owned(),
+            codex_version: "0.147.0".to_owned(),
+            checks: BTreeMap::from([(
+                "config.load".to_owned(),
+                crate::doctor::DoctorCheck {
+                    id: "config.load".to_owned(),
+                    status: "ok".to_owned(),
+                    summary: Some("config loaded".to_owned()),
+                },
+            )]),
+        };
+        let agents = agents();
+        let mut facts = facts(&doctor, &agents);
+        facts.skill_catalog_error_count = 2;
+
+        let report = synthesize_report(facts);
+
+        assert_eq!(report.verdict, Verdict::Review);
+        assert_eq!(report.skills.catalog_errors, 2);
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].code, "skills.catalog");
     }
 
     #[test]
@@ -335,8 +453,11 @@ mod tests {
             "doctor.network.provider_reachability"
         );
         assert!(json.contains(r#""schemaVersion": 1"#));
+        assert!(json.contains(r#""kind": "summary""#));
         assert!(json.contains(r#""verdict": "REVIEW""#));
         assert!(json.contains(r#""trust": "unconfigured""#));
+        assert!(json.contains(r#""section": "skills""#));
+        assert!(json.contains(r#""gr""#));
     }
 
     #[test]
@@ -398,13 +519,16 @@ mod tests {
     #[test]
     fn serializes_failure_report_with_common_contract_fields() {
         let report = CodexFailureReport::new(
+            ReportKind::Summary,
             Verdict::Blocked,
             ReportFinding::new("codex.not_found", "blocked", "Codex was not found"),
         );
         let json = report.to_pretty_json().expect("report should serialize");
 
         assert!(json.contains(r#""schemaVersion": 1"#));
+        assert!(json.contains(r#""kind": "summary""#));
         assert!(json.contains(r#""verdict": "BLOCKED""#));
+        assert!(json.contains(r#""section": "skills""#));
         assert!(json.contains(r#""code": "codex.not_found""#));
     }
 }

@@ -3,13 +3,12 @@
 class Goalrail < Formula
   desc "Evidence-backed inspection of coding-agent environments"
   homepage "https://github.com/heurema/goalrail-rs"
-  license "MIT"
-  version "@@VERSION@@"
   url "@@URL@@"
   sha256 "@@SHA256@@"
+  license "MIT"
 
-  depends_on :macos
   depends_on arch: :arm64
+  depends_on :macos
 
   def install
     bin.install "gr"

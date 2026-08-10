@@ -88,7 +88,6 @@ archive_size=$(wc -c <"$bundle_dir/$artifact" | tr -d ' ')
 printf '%s  %s\n' "$archive_sha256" "$artifact" >"$bundle_dir/$artifact.sha256"
 
 sed \
-  -e "s|@@VERSION@@|$version|g" \
   -e "s|@@URL@@|$download_url|g" \
   -e "s|@@SHA256@@|$archive_sha256|g" \
   release/homebrew/goalrail.rb.in >"$bundle_dir/goalrail.rb"

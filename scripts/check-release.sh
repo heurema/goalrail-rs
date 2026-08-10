@@ -84,9 +84,11 @@ if grep -q '@@' "$formula"; then
   fail "Homebrew formula contains unresolved placeholders"
 fi
 
-grep -Fq "version \"$version\"" "$formula" || fail "formula version does not match"
 grep -Fq "url \"$download_url\"" "$formula" || fail "formula URL does not match"
 grep -Fq "sha256 \"$actual_checksum\"" "$formula" || fail "formula checksum does not match"
+if grep -Eq '^[[:space:]]+version([[:space:]]|\()' "$formula"; then
+  fail "formula should derive its version from the release URL"
+fi
 grep -Fq 'depends_on :macos' "$formula" || fail "formula lacks the macOS guard"
 grep -Fq 'depends_on arch: :arm64' "$formula" || fail "formula lacks the arm64 guard"
 

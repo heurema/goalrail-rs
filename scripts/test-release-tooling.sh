@@ -27,6 +27,19 @@ if scripts/prepare-release.sh "$version-dev" "$output_root" >/dev/null 2>&1; the
   exit 1
 fi
 
+formula="$output_root/v$version/goalrail.rb"
+formula_clean="$formula.clean"
+cp "$formula" "$formula_clean"
+awk -v version="$version" '
+  { print }
+  /^[[:space:]]+sha256 / { printf "  version(\"%s\")\n", version }
+' "$formula_clean" >"$formula"
+if scripts/check-release.sh "$version" "$output_root" >/dev/null 2>&1; then
+  echo "release tooling accepted an explicit formula version" >&2
+  exit 1
+fi
+mv "$formula_clean" "$formula"
+
 artifact="$output_root/v$version/goalrail-v$version-aarch64-apple-darwin.tar.gz"
 printf 'tampered' >>"$artifact"
 if scripts/check-release.sh "$version" "$output_root" >/dev/null 2>&1; then

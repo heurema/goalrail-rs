@@ -214,6 +214,24 @@ scripts/assemble-release.sh \
 scripts/check-release-bundle.sh \
   "$version" "$source_commit" "$output_root/bundle" >/dev/null
 
+fake_file_bin="$fixture_root/fake-file-bin"
+mkdir -p "$fake_file_bin"
+cat >"$fake_file_bin/file" <<'EOF'
+#!/bin/sh
+printf '%s\n' "${GOALRAIL_TEST_FILE_DESCRIPTION:?}"
+EOF
+chmod 0755 "$fake_file_bin/file"
+GOALRAIL_TEST_FILE_DESCRIPTION='Mach-O 64-bit arm64 executable' \
+  PATH="$fake_file_bin:$PATH" \
+  scripts/check-release.sh \
+  "$version" aarch64-apple-darwin "$output_root/bundle" >/dev/null
+if GOALRAIL_TEST_FILE_DESCRIPTION='Mach-O 64-bit x86_64 executable' \
+  PATH="$fake_file_bin:$PATH" \
+  scripts/check-release.sh \
+  "$version" aarch64-apple-darwin "$output_root/bundle" >/dev/null 2>&1; then
+  fail "release tooling accepted the wrong Mach-O architecture"
+fi
+
 manifest="$release_dir/goalrail-v$version-x86_64-unknown-linux-gnu.json"
 manifest_clean="$manifest.clean"
 cp "$manifest" "$manifest_clean"

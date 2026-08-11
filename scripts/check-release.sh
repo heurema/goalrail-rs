@@ -82,11 +82,29 @@ command -v jq >/dev/null 2>&1 || fail "jq is unavailable"
 command -v file >/dev/null 2>&1 || fail "file is unavailable"
 archive_size=$(wc -c <"$archive" | tr -d ' ')
 binary_description=$(LC_ALL=C file -b "$extract_dir/$binary_name")
-case "$target:$binary_description" in
-  aarch64-apple-darwin:*'Mach-O 64-bit executable arm64'*) ;;
-  x86_64-unknown-linux-gnu:*'ELF 64-bit'*'x86-64'*) ;;
-  x86_64-pc-windows-msvc:*'PE32+ executable'*'x86-64'*) ;;
-  *) fail "binary format does not match $target: $binary_description" ;;
+case "$target" in
+  aarch64-apple-darwin)
+    if ! printf '%s\n' "$binary_description" |
+      grep -Eq '^Mach-O 64-bit([[:space:],]|$)' ||
+      ! printf '%s\n' "$binary_description" |
+        grep -Eq '(^|[[:space:],])arm64([[:space:],]|$)' ||
+      ! printf '%s\n' "$binary_description" |
+        grep -Eq '(^|[[:space:],])executable([[:space:],]|$)'; then
+      fail "binary format does not match $target: $binary_description"
+    fi
+    ;;
+  x86_64-unknown-linux-gnu)
+    case "$binary_description" in
+      *'ELF 64-bit'*'x86-64'*) ;;
+      *) fail "binary format does not match $target: $binary_description" ;;
+    esac
+    ;;
+  x86_64-pc-windows-msvc)
+    case "$binary_description" in
+      *'PE32+ executable'*'x86-64'*) ;;
+      *) fail "binary format does not match $target: $binary_description" ;;
+    esac
+    ;;
 esac
 
 jq -e \

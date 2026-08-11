@@ -117,7 +117,7 @@ registration does not authorize plugin installation. These commands are not
 run by `mise run test:goalrail-plugin` or `mise run ci`.
 
 The marketplace entry uses the remote `git-subdir` source and pins
-`plugins/goalrail` to the immutable shared release tag `v0.3.1`. The marketplace
+`plugins/goalrail` to the immutable shared release tag `v0.3.2`. The marketplace
 catalog can keep refreshing from `main` without making the installed plugin
 follow the branch automatically. CLI crates and the plugin share one release
 version. A behavior change in either advances the whole Goalrail release and
@@ -127,7 +127,7 @@ Run `mise run test:goalrail-plugin` for offline package validation. After the
 exact ref has been pushed, run the real Git-backed smoke test with:
 
 ```bash
-mise run smoke:goalrail-plugin-remote -- main 0.3.1
+mise run smoke:goalrail-plugin-remote -- main 0.3.2
 ```
 
 The smoke test uses an isolated temporary `CODEX_HOME`; it does not register or
@@ -187,19 +187,20 @@ The repository packages exactly three release targets:
 - Linux x86_64 (`x86_64-unknown-linux-gnu`), built and smoked on Ubuntu 22.04;
 - Windows x86_64 (`x86_64-pc-windows-msvc`).
 
-The current public `v0.3.1` install contract remains macOS arm64 through
-Homebrew. Linux and Windows are source-preview release tooling until a higher
-version has passed the native GitHub runner workflow and its assets have been
-published and checked. Windows artifacts are not code-signed and may trigger
-SmartScreen. No Linux or Windows package-manager lifecycle is promised yet.
+`v0.3.2` is the first release contract to define direct GitHub assets for all
+three targets. Availability is established only after the native workflow
+passes and those assets are published and checked. Homebrew remains the managed
+install path for macOS arm64. Windows artifacts are not code-signed and may
+trigger SmartScreen. No Linux or Windows package-manager lifecycle is promised
+yet.
 
 One local host can build and verify only its matching native target. For
 example, on Apple silicon:
 
 ```bash
 mise run release:test
-mise run release:prepare -- 0.3.1 aarch64-apple-darwin
-mise run release:check -- 0.3.1 aarch64-apple-darwin
+mise run release:prepare -- 0.3.2 aarch64-apple-darwin
+mise run release:check -- 0.3.2 aarch64-apple-darwin
 ```
 
 Each target produces a binary-and-license archive, its SHA-256, and target
@@ -226,16 +227,26 @@ signature or proof against repository or runner compromise.
 Before any public release, run the read-only source gate:
 
 ```bash
-mise run release:preflight -- 0.3.1
+mise run release:preflight -- 0.3.2
 ```
 
 It fails closed unless the version matches, the checkout is clean, HEAD has the
 exact annotated tag, the multi-platform tooling is present, and distribution
 terms have been selected. The result includes the source commit and Cargo.lock
-SHA-256. Passing the gate does not dispatch the workflow, publish, install, or
-update anything.
+SHA-256. Passing the gate does not push the tag, dispatch the workflow, publish,
+install, or update anything.
 
-After separate approval, the native build is dispatched with the exact tag:
+Keep the marketplace catalog on the previous release until the new tagged
+payload and public assets exist. After separate approval, push only the exact
+annotated tag, then verify its peeled remote commit:
+
+```bash
+git push origin refs/tags/vX.Y.Z
+scripts/check-remote-release-tag.sh vX.Y.Z <full-source-commit> origin
+```
+
+Do not move or replace a pushed release tag. Recovery uses a higher patch
+version. After separate approval, dispatch the native build with that tag:
 
 ```bash
 gh workflow run release.yml -f tag=vX.Y.Z
@@ -257,9 +268,28 @@ scripts/check-remote-release-tag.sh vX.Y.Z <full-source-commit> origin
 ```
 
 Publishing those verified files with `gh release create` is a later,
-separately approved operation. A failed workflow publishes nothing. An already
-existing release or any asset collision is `BLOCKED`; immutable tags and assets
-are never replaced. Recovery uses a higher patch version.
+separately approved operation. Read back the public release and require every
+expected asset before claiming availability. A failed workflow publishes
+nothing. An already existing release or any asset collision is `BLOCKED`;
+immutable tags and assets are never replaced.
+
+Only after the public release readback passes may a separately approved push
+promote the marketplace catalog. Resolve the verified tag once, require local
+`main` to equal it, push that exact commit without force, and require the remote
+branch readback to equal it:
+
+```bash
+source_commit="$(git rev-parse 'vX.Y.Z^{commit}')"
+test "$(git rev-parse main)" = "$source_commit"
+scripts/check-remote-release-tag.sh vX.Y.Z "$source_commit" origin
+git push origin "$source_commit:refs/heads/main"
+test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$source_commit"
+```
+
+Then run the remote plugin smoke test shown above. Updating the Homebrew tap
+remains another separately approved action. This order prevents `main` from
+advertising a plugin payload tag that does not yet exist or promoting changes
+outside the verified release source.
 
 ## Design documents
 

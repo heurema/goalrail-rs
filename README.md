@@ -117,7 +117,7 @@ registration does not authorize plugin installation. These commands are not
 run by `mise run test:goalrail-plugin` or `mise run ci`.
 
 The marketplace entry uses the remote `git-subdir` source and pins
-`plugins/goalrail` to the immutable shared release tag `v0.3.2`. The marketplace
+`plugins/goalrail` to the immutable shared release tag `v0.3.3`. The marketplace
 catalog can keep refreshing from `main` without making the installed plugin
 follow the branch automatically. CLI crates and the plugin share one release
 version. A behavior change in either advances the whole Goalrail release and
@@ -127,7 +127,7 @@ Run `mise run test:goalrail-plugin` for offline package validation. After the
 exact ref has been pushed, run the real Git-backed smoke test with:
 
 ```bash
-mise run smoke:goalrail-plugin-remote -- main 0.3.2
+mise run smoke:goalrail-plugin-remote -- main 0.3.3
 ```
 
 The smoke test uses an isolated temporary `CODEX_HOME`; it does not register or
@@ -199,8 +199,8 @@ example, on Apple silicon:
 
 ```bash
 mise run release:test
-mise run release:prepare -- 0.3.2 aarch64-apple-darwin
-mise run release:check -- 0.3.2 aarch64-apple-darwin
+mise run release:prepare -- 0.3.3 aarch64-apple-darwin
+mise run release:check -- 0.3.3 aarch64-apple-darwin
 ```
 
 Each target produces a binary-and-license archive, its SHA-256, and target
@@ -227,7 +227,7 @@ signature or proof against repository or runner compromise.
 Before any public release, run the read-only source gate:
 
 ```bash
-mise run release:preflight -- 0.3.2
+mise run release:preflight -- 0.3.3
 ```
 
 It fails closed unless the version matches, the checkout is clean, HEAD has the

@@ -14,32 +14,23 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-mod assessment;
-mod model;
-
 use memchr::memmem;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, value::RawValue};
+
+use gr_skill_assessment::{
+    Assessment, AssessmentInput, AssessmentSkillEvidence, AssessmentVerdict, CoverageStatus,
+    ObservedUse, ObservedUseKey, RECENT_DAYS, SkillCleanupSummary, SkillEvidenceRef, SkillOrigin,
+    SkillUsageItem, SkillUsageSummary, UNOBSERVED_HISTORY_DAYS, assess,
+};
+#[cfg(test)]
+use gr_skill_assessment::{CleanupDisposition, SkillSignal};
 
 use crate::{
     PROBE_TIMEOUT, Verdict,
     report::{
         CodexFailureReport, REPORT_SCHEMA_VERSION, ReportFinding, ReportKind, SkillOriginSummary,
     },
-};
-
-use assessment::{
-    Assessment, CoverageStatus, RECENT_DAYS, SkillCleanupSummary, SkillUsageItem,
-    SkillUsageSummary, UNOBSERVED_HISTORY_DAYS, assess,
-};
-#[cfg(test)]
-use assessment::{
-    CleanupDisposition, SkillSignal, cleanup_disposition,
-    coverage_status as assessment_coverage_status, history_is_sufficient,
-};
-use model::{
-    AssessmentInput, AssessmentSkillEvidence, ObservedUse, ObservedUseKey, SkillEvidenceRef,
-    SkillOrigin,
 };
 
 const SECONDS_PER_DAY: i64 = 86_400;
@@ -1037,7 +1028,7 @@ fn build_report(
                 name: skill.name,
                 scope: skill.scope,
                 origin,
-                manifest_path: skill.path,
+                manifest_path: skill.path.to_string_lossy().into_owned(),
                 observed: evidence.by_skill.remove(&identity).unwrap_or_default(),
             }
         })
@@ -1047,7 +1038,7 @@ fn build_report(
         summary,
         cleanup,
         items,
-        verdict,
+        verdict: assessment_verdict,
     } = assess(AssessmentInput {
         observed_epoch,
         history_from_epoch: evidence.history_from.as_ref().map(|value| value.1),
@@ -1063,6 +1054,10 @@ fn build_report(
         skills: assessment_skills,
     });
 
+    let verdict = match assessment_verdict {
+        AssessmentVerdict::BaselineOk => Verdict::BaselineOk,
+        AssessmentVerdict::Review => Verdict::Review,
+    };
     let mut findings = Vec::new();
     if status == CoverageStatus::None {
         findings.push(ReportFinding::new(
@@ -1142,20 +1137,6 @@ fn build_report(
         items,
         findings,
     }
-}
-
-#[cfg(test)]
-fn coverage_status(evidence: &UsageEvidence, catalog_errors: usize) -> CoverageStatus {
-    assessment_coverage_status(
-        evidence.rollouts_discovered,
-        evidence.rollouts_excluded_current,
-        evidence.rollouts_unreadable,
-        evidence.discovery_errors,
-        evidence.records_unreadable,
-        evidence.rollouts_scanned,
-        catalog_errors,
-        evidence.truncated,
-    )
 }
 
 fn current_epoch_seconds() -> io::Result<i64> {
@@ -1800,56 +1781,6 @@ mod tests {
     }
 
     #[test]
-    fn classifies_cleanup_from_ownership_before_usage_signal() {
-        let cases = [
-            (
-                SkillOrigin::Plugin,
-                SkillSignal::Unobserved,
-                CleanupDisposition::ManagedNoManualCleanup,
-            ),
-            (
-                SkillOrigin::System,
-                SkillSignal::Aging,
-                CleanupDisposition::ManagedNoManualCleanup,
-            ),
-            (
-                SkillOrigin::Plugin,
-                SkillSignal::Recent,
-                CleanupDisposition::ManagedNoManualCleanup,
-            ),
-            (
-                SkillOrigin::Personal,
-                SkillSignal::Recent,
-                CleanupDisposition::Keep,
-            ),
-            (
-                SkillOrigin::Project,
-                SkillSignal::Aging,
-                CleanupDisposition::ManualReview,
-            ),
-            (
-                SkillOrigin::Admin,
-                SkillSignal::Unobserved,
-                CleanupDisposition::ManagedNoManualCleanup,
-            ),
-            (
-                SkillOrigin::Personal,
-                SkillSignal::InsufficientHistory,
-                CleanupDisposition::Defer,
-            ),
-            (
-                SkillOrigin::Unknown,
-                SkillSignal::Recent,
-                CleanupDisposition::InvestigateOrigin,
-            ),
-        ];
-
-        for (origin, signal, expected) in cases {
-            assert_eq!(cleanup_disposition(origin, signal), expected);
-        }
-    }
-
-    #[test]
     fn keeps_only_nonempty_current_thread_ids() {
         assert_eq!(nonempty_thread_id(None), None);
         assert_eq!(nonempty_thread_id(Some(String::new())), None);
@@ -1920,17 +1851,12 @@ mod tests {
         let personal = report
             .items
             .iter()
-            .find(|item| {
-                item.manifest_path.as_path()
-                    == Path::new("/home/user/.agents/skills/shared/SKILL.md")
-            })
+            .find(|item| item.manifest_path == "/home/user/.agents/skills/shared/SKILL.md")
             .expect("personal skill should remain");
         let project = report
             .items
             .iter()
-            .find(|item| {
-                item.manifest_path.as_path() == Path::new("/repo/.agents/skills/shared/SKILL.md")
-            })
+            .find(|item| item.manifest_path == "/repo/.agents/skills/shared/SKILL.md")
             .expect("project skill should remain");
 
         assert_eq!(personal.signal, SkillSignal::Unobserved);
@@ -2270,99 +2196,6 @@ mod tests {
         let human = format_human_report(&report);
         assert!(human.contains("Items: 1 actionable returned, 1 omitted"));
         assert!(!human.contains("plugin-recent"));
-    }
-
-    #[test]
-    fn discovery_errors_make_coverage_partial_instead_of_none() {
-        let evidence = UsageEvidence {
-            discovery_errors: 1,
-            ..UsageEvidence::default()
-        };
-
-        assert_eq!(coverage_status(&evidence, 0), CoverageStatus::Partial);
-    }
-
-    #[test]
-    fn treats_each_incomplete_evidence_reason_as_partial() {
-        let complete = UsageEvidence {
-            rollouts_discovered: 1,
-            rollouts_scanned: 1,
-            ..UsageEvidence::default()
-        };
-        assert_eq!(coverage_status(&complete, 0), CoverageStatus::Complete);
-        assert_eq!(
-            coverage_status(&UsageEvidence::default(), 0),
-            CoverageStatus::None
-        );
-
-        let cases = [
-            (
-                "unreadable rollout",
-                UsageEvidence {
-                    rollouts_discovered: 1,
-                    rollouts_scanned: 1,
-                    rollouts_unreadable: 1,
-                    ..UsageEvidence::default()
-                },
-                0,
-            ),
-            (
-                "discovery error",
-                UsageEvidence {
-                    rollouts_discovered: 1,
-                    rollouts_scanned: 1,
-                    discovery_errors: 1,
-                    ..UsageEvidence::default()
-                },
-                0,
-            ),
-            (
-                "unreadable record",
-                UsageEvidence {
-                    rollouts_discovered: 1,
-                    rollouts_scanned: 1,
-                    records_unreadable: 1,
-                    ..UsageEvidence::default()
-                },
-                0,
-            ),
-            (
-                "truncated scan",
-                UsageEvidence {
-                    rollouts_discovered: 1,
-                    rollouts_scanned: 1,
-                    truncated: true,
-                    ..UsageEvidence::default()
-                },
-                0,
-            ),
-            (
-                "catalog error",
-                UsageEvidence {
-                    rollouts_discovered: 1,
-                    rollouts_scanned: 1,
-                    ..UsageEvidence::default()
-                },
-                1,
-            ),
-            (
-                "unaccounted rollout",
-                UsageEvidence {
-                    rollouts_discovered: 2,
-                    rollouts_scanned: 1,
-                    ..UsageEvidence::default()
-                },
-                0,
-            ),
-        ];
-
-        for (reason, evidence, catalog_errors) in cases {
-            assert_eq!(
-                coverage_status(&evidence, catalog_errors),
-                CoverageStatus::Partial,
-                "{reason} should make coverage partial"
-            );
-        }
     }
 
     #[test]
@@ -2770,31 +2603,6 @@ mod tests {
             scan.history_through.as_ref().map(|value| value.0.as_str()),
             Some("2026-06-01T00:00:00Z")
         );
-    }
-
-    #[test]
-    fn distinguishes_unobserved_from_insufficient_history() {
-        let observed_epoch = parse_rfc3339_epoch("2026-08-09T00:00:00Z").expect("timestamp");
-        assert!(history_is_sufficient(
-            observed_epoch,
-            Some(observed_epoch - UNOBSERVED_HISTORY_DAYS as i64 * SECONDS_PER_DAY),
-            Some(observed_epoch - RECENT_DAYS as i64 * SECONDS_PER_DAY)
-        ));
-        assert!(history_is_sufficient(
-            observed_epoch,
-            parse_rfc3339_epoch("2026-06-01T00:00:00Z"),
-            parse_rfc3339_epoch("2026-08-08T00:00:00Z")
-        ));
-        assert!(!history_is_sufficient(
-            observed_epoch,
-            parse_rfc3339_epoch("2026-08-01T00:00:00Z"),
-            parse_rfc3339_epoch("2026-08-08T00:00:00Z")
-        ));
-        assert!(!history_is_sufficient(
-            observed_epoch,
-            parse_rfc3339_epoch("2026-06-01T00:00:00Z"),
-            parse_rfc3339_epoch("2026-07-01T00:00:00Z")
-        ));
     }
 
     #[test]

@@ -112,3 +112,47 @@ modified before closure: setup now installs `jq` 1.8.2 and the exact
 `nightly-2026-08-07` toolchain, and the checker runs that dated toolchain instead
 of the mutable `nightly` alias. The exact toolchain produced the same 24-line
 facade snapshot.
+
+## cargo-pup-import-policy
+
+- Owner: [decision 0007](decisions/0007-reject-cargo-pup-dependency-gate.md)
+- Added: `2026-08-11`
+- Closed: `2026-08-11`
+- Current decision: `REMOVE`.
+
+The isolated `cargo-pup` 0.1.8 canary rejected a directly forbidden
+`use crate::forbidden::Secret` declaration. It accepted the semantically
+equivalent `crate::forbidden::Secret` qualified path with exit code 0. Upstream
+source confirms that `RestrictImports` visits only HIR `ItemKind::Use` items;
+invalid deny regexes also evaluate as no match after printing an error.
+
+The qualified-path false accept conclusively prevents a dependency-direction
+or AD-6 claim. No `cargo-pup` dependency, configuration, setup prerequisite, or
+task was added to Goalrail. Revisit only if an upstream release closes the
+mechanism gaps listed in decision 0007.
+
+## compiler-enforced-skill-assessment-boundary
+
+- Owner: [decision 0008](decisions/0008-enforce-skill-assessment-crate-boundary.md)
+  and [`ARCHITECTURE-SPINE.md`](../ARCHITECTURE-SPINE.md#enforcement-status)
+- Added: `2026-08-11`
+- Revisit: after three skill behavior or stage-boundary milestones, or by
+  `2026-09-11`, whichever comes first.
+- Current decision: `TRIAL`.
+
+The first canary moved only the normalized assessment model and cleanup policy
+to the internal `no_std` crate `gr-skill-assessment`. Cargo metadata now has the
+owned edge `gr-inspect-codex -> gr-skill-assessment`; the assessment crate has
+no owned dependency and declares only `serde` without default features. The
+gate rejected sabotage metadata containing the reverse edge and rejected an
+extra `gr -> gr-skill-assessment` consumer edge. It also rejected an undeclared
+feature and a test metadata override outside the guarded sabotage harness. A
+compiler canary using a temporary sysroot without `std` rejected a
+token-obfuscated `extern /* bypass */ crate std` opt-in. The assessment crate
+owns the direct policy tests; the parent skills tests remain the integration
+oracle. The gate deliberately makes no claim about catalog, history, or
+presentation stages that still live in `skills.rs`.
+
+Record a false accept, false reject, confusing boundary failure, new assessment
+capability request, measurable workflow cost, or any proposal to extract
+another stage. Do not add another architecture analyzer to this trial.

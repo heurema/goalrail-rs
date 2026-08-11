@@ -87,11 +87,12 @@ mise run setup
 mise run ci
 ```
 
-`mise run ci` checks formatting, Clippy, workspace tests, coverage, and local
-verification-receipt behavior. Architecture invariants currently require
-explicit review; the retired custom checker must not be treated as a passing
-gate. `mise run architecture:public-api` is a separate trial that compares only
-the documented rustdoc-visible facade slice and does not prove the architecture
+`mise run ci` checks formatting, Clippy, the narrow compiler-enforced skill
+assessment boundary, workspace tests, coverage, and local verification-receipt
+behavior. Other architecture invariants still require explicit review; the
+retired custom checker must not be treated as a passing gate.
+`mise run architecture:public-api` is a separate trial that compares only the
+documented rustdoc-visible facade slice and does not prove the architecture
 spine. A successful
 `verify:rust-milestone` run records local verification evidence under `.git`.
 The tracked native pre-push hook checks every pushed ref for exact-tree CI
@@ -145,6 +146,12 @@ gate does not publish, tag, install, or update anything.
 - [Public API facade trial](docs/decisions/0006-trial-cargo-public-api.md)
   records the exact facade slice checked by `cargo-public-api` and its known
   blind spots.
+- [Rejected cargo-pup dependency gate](docs/decisions/0007-reject-cargo-pup-dependency-gate.md)
+  records the qualified-path false accept that prevents a dependency-direction
+  or AD-6 claim.
+- [Compiler-enforced skill assessment boundary](docs/decisions/0008-enforce-skill-assessment-crate-boundary.md)
+  records the narrow internal crate extraction used instead of a source-level
+  import policy.
 - [Model behavior evaluation proposal](docs/ideas/model-behavior-evaluation.md)
   captures a possible provider-neutral comparison mechanism. It is not part of
   the runtime or public CLI yet.

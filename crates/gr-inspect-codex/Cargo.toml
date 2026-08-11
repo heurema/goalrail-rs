@@ -5,6 +5,7 @@ edition = "2024"
 license = "MIT"
 
 [dependencies]
+gr-skill-assessment = { path = "../gr-skill-assessment" }
 memchr = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }

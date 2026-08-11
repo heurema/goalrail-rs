@@ -117,6 +117,7 @@ dependencies = [
 name = "gr-inspect-codex"
 version = "0.2.0"
 dependencies = [
+ "gr-skill-assessment",
  "memchr",
  "serde",
  "serde_json",
@@ -126,6 +127,13 @@ dependencies = [
 [[package]]
 name = "gr-site"
 version = "0.2.0"
+
+[[package]]
+name = "gr-skill-assessment"
+version = "0.2.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "hashbrown"

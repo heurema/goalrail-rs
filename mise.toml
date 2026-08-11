@@ -33,6 +33,8 @@ description = "Run the local CI checks"
 run = [
   { task = "fmt" },
   { task = "lint" },
+  { task = "architecture:assessment" },
+  { task = "test:assessment-boundary" },
   { task = "coverage" },
   { task = "test:verification-receipts" },
 ]
@@ -74,6 +76,14 @@ run = "./scripts/check-public-api.sh"
 [tasks."test:public-api"]
 description = "Test the public API trial fail-closed behavior"
 run = "./scripts/test-public-api.sh"
+
+[tasks."architecture:assessment"]
+description = "Verify the compiler-enforced skill assessment boundary"
+run = "./scripts/check-assessment-boundary.sh"
+
+[tasks."test:assessment-boundary"]
+description = "Sabotage-test the skill assessment boundary gate"
+run = "./scripts/test-assessment-boundary.sh"
 
 [tasks."site:build"]
 description = "Build the static Goalrail site and its WebAssembly motion module"

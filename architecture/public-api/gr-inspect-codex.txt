@@ -1,0 +1,24 @@
+pub mod gr_inspect_codex
+pub enum gr_inspect_codex::Verdict
+pub gr_inspect_codex::Verdict::BaselineOk
+pub gr_inspect_codex::Verdict::Blocked
+pub gr_inspect_codex::Verdict::Incomplete
+pub gr_inspect_codex::Verdict::Review
+impl gr_inspect_codex::Verdict
+pub const fn gr_inspect_codex::Verdict::as_str(self) -> &'static str
+pub const fn gr_inspect_codex::Verdict::exit_code(self) -> u8
+pub struct gr_inspect_codex::InspectionOutcome
+impl gr_inspect_codex::InspectionOutcome
+pub const fn gr_inspect_codex::InspectionOutcome::is_failure(&self) -> bool
+pub fn gr_inspect_codex::InspectionOutcome::to_human(&self) -> alloc::string::String
+pub fn gr_inspect_codex::InspectionOutcome::to_pretty_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+pub const fn gr_inspect_codex::InspectionOutcome::verdict(&self) -> gr_inspect_codex::Verdict
+pub struct gr_inspect_codex::SkillsInspectionOutcome
+impl gr_inspect_codex::SkillsInspectionOutcome
+pub const fn gr_inspect_codex::SkillsInspectionOutcome::is_failure(&self) -> bool
+pub fn gr_inspect_codex::SkillsInspectionOutcome::to_human(&self) -> alloc::string::String
+pub fn gr_inspect_codex::SkillsInspectionOutcome::to_pretty_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+pub const fn gr_inspect_codex::SkillsInspectionOutcome::verdict(&self) -> gr_inspect_codex::Verdict
+pub fn gr_inspect_codex::inspect_codex() -> gr_inspect_codex::InspectionOutcome
+pub fn gr_inspect_codex::inspect_codex_skill_actions() -> gr_inspect_codex::SkillsInspectionOutcome
+pub fn gr_inspect_codex::inspect_codex_skills() -> gr_inspect_codex::SkillsInspectionOutcome

@@ -7,6 +7,12 @@
   command ownership, read `ARCHITECTURE-SPINE.md` and preserve its invariants.
   If an invariant must change, update the spine before implementation.
 - Keep one diff focused on one purpose and preserve unrelated owner work.
+- Do not add repository-owned tooling implemented in Ruby. Homebrew Formula
+  DSL is the required exception. Prefer a mature maintained library or tool for
+  nontrivial language analysis. A focused project-specific rule is allowed when
+  its need is concrete, its claim is honestly scoped, and positive and negative
+  sabotage cases prove the claimed behavior. Do not add a dependency before
+  its need and fit are proven.
 - Run `mise run ci` after Rust behavior or architecture changes. Before
   declaring such a milestone `DONE`, create a goal-scoped diff and run
   `GOALRAIL_MUTATION_DIFF=<path> mise run verify:rust-milestone`.

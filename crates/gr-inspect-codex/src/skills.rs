@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::BTreeMap,
     env,
     fmt::Write as _,
     fs::{self, File},
@@ -14,6 +14,9 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+mod assessment;
+mod model;
+
 use memchr::memmem;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, value::RawValue};
@@ -25,8 +28,20 @@ use crate::{
     },
 };
 
-const RECENT_DAYS: u64 = 7;
-const UNOBSERVED_HISTORY_DAYS: u64 = 30;
+use assessment::{
+    Assessment, CoverageStatus, RECENT_DAYS, SkillCleanupSummary, SkillUsageItem,
+    SkillUsageSummary, UNOBSERVED_HISTORY_DAYS, assess,
+};
+#[cfg(test)]
+use assessment::{
+    CleanupDisposition, SkillSignal, cleanup_disposition,
+    coverage_status as assessment_coverage_status, history_is_sufficient,
+};
+use model::{
+    AssessmentInput, AssessmentSkillEvidence, ObservedUse, ObservedUseKey, SkillEvidenceRef,
+    SkillOrigin,
+};
+
 const SECONDS_PER_DAY: i64 = 86_400;
 const HISTORY_SCAN_TIMEOUT: Duration = Duration::from_secs(15);
 const EVIDENCE_BASIS: &str = "exact_skill_manifest_path_in_retained_rollout_tool_calls";
@@ -135,24 +150,6 @@ impl SkillItemView {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-enum CoverageStatus {
-    Complete,
-    Partial,
-    None,
-}
-
-impl CoverageStatus {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Complete => "complete",
-            Self::Partial => "partial",
-            Self::None => "none",
-        }
-    }
-}
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SkillCoverage {
@@ -174,56 +171,6 @@ struct SkillCoverage {
 struct SkillThresholds {
     recent_days: u64,
     unobserved_history_days: u64,
-}
-
-#[derive(Debug, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SkillUsageSummary {
-    total: usize,
-    recent: usize,
-    aging: usize,
-    unobserved: usize,
-    insufficient_history: usize,
-}
-
-#[derive(Debug, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SkillCleanupSummary {
-    keep: usize,
-    manual_review: usize,
-    managed_no_manual_cleanup: usize,
-    defer: usize,
-    investigate_origin: usize,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum SkillSignal {
-    Recent,
-    Aging,
-    Unobserved,
-    InsufficientHistory,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum CleanupDisposition {
-    Keep,
-    ManualReview,
-    ManagedNoManualCleanup,
-    Defer,
-    InvestigateOrigin,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-enum SkillOrigin {
-    System,
-    Plugin,
-    Personal,
-    Project,
-    Admin,
-    Unknown,
 }
 
 struct SkillOriginClassifier {
@@ -258,92 +205,6 @@ impl SkillOriginClassifier {
             _ => SkillOrigin::Unknown,
         }
     }
-}
-
-impl SkillOrigin {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::System => "system",
-            Self::Plugin => "plugin",
-            Self::Personal => "personal",
-            Self::Project => "project",
-            Self::Admin => "admin",
-            Self::Unknown => "unknown",
-        }
-    }
-}
-
-impl SkillSignal {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Recent => "recent",
-            Self::Aging => "aging",
-            Self::Unobserved => "unobserved",
-            Self::InsufficientHistory => "insufficient_history",
-        }
-    }
-
-    const fn sort_rank(self) -> u8 {
-        match self {
-            Self::Unobserved => 0,
-            Self::Aging => 1,
-            Self::Recent => 2,
-            Self::InsufficientHistory => 3,
-        }
-    }
-}
-
-impl CleanupDisposition {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Keep => "keep",
-            Self::ManualReview => "manual_review",
-            Self::ManagedNoManualCleanup => "managed_no_manual_cleanup",
-            Self::Defer => "defer",
-            Self::InvestigateOrigin => "investigate_origin",
-        }
-    }
-
-    const fn sort_rank(self) -> u8 {
-        match self {
-            Self::ManualReview => 0,
-            Self::InvestigateOrigin => 1,
-            Self::Defer => 2,
-            Self::ManagedNoManualCleanup => 3,
-            Self::Keep => 4,
-        }
-    }
-
-    const fn is_actionable(self) -> bool {
-        matches!(
-            self,
-            Self::ManualReview | Self::Defer | Self::InvestigateOrigin
-        )
-    }
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SkillUsageItem {
-    name: String,
-    scope: String,
-    manifest_path: PathBuf,
-    origin: SkillOrigin,
-    signal: SkillSignal,
-    cleanup_disposition: CleanupDisposition,
-    last_observed_use_at: Option<String>,
-    age_days: Option<u64>,
-    observed_uses_in_window: usize,
-    last_evidence: Option<SkillEvidenceRef>,
-    #[serde(skip)]
-    last_observed_epoch: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SkillEvidenceRef {
-    thread_id: String,
-    turn_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -430,20 +291,6 @@ struct ToolCallPayload {
     kind: String,
     input: Option<String>,
     arguments: Option<String>,
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-struct ObservedUseKey {
-    thread_id: String,
-    turn_or_event: String,
-}
-
-#[derive(Debug, Clone)]
-struct ObservedUse {
-    key: ObservedUseKey,
-    timestamp: String,
-    epoch: i64,
-    evidence: SkillEvidenceRef,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -1180,70 +1027,40 @@ fn build_report(
     mut evidence: UsageEvidence,
     catalog_errors: usize,
 ) -> SkillsInspectionReport {
-    let status = coverage_status(&evidence, catalog_errors);
-    let history_sufficient = status == CoverageStatus::Complete
-        && history_is_sufficient(
-            observed_epoch,
-            evidence.history_from.as_ref().map(|value| value.1),
-            evidence.history_through.as_ref().map(|value| value.1),
-        );
-    let mut summary = SkillUsageSummary::default();
-    let mut cleanup = SkillCleanupSummary::default();
-    let mut items = Vec::with_capacity(skills.len());
     let origin_classifier = SkillOriginClassifier::new(codex_home);
-
-    for skill in skills {
-        let mut unique = HashSet::new();
-        let identity = SkillIdentity::from(&skill);
-        let mut observed = evidence.by_skill.remove(&identity).unwrap_or_default();
-        observed.retain(|use_| unique.insert(use_.key.clone()));
-        let last = observed.iter().max_by_key(|use_| use_.epoch);
-        let age_days = last.map(|use_| age_days(observed_epoch, use_.epoch));
-        let signal = match age_days {
-            Some(days) if days <= RECENT_DAYS => SkillSignal::Recent,
-            Some(_) => SkillSignal::Aging,
-            None if history_sufficient => SkillSignal::Unobserved,
-            None => SkillSignal::InsufficientHistory,
-        };
-        let origin = origin_classifier.classify(&skill.path, &skill.scope);
-        let cleanup_disposition = cleanup_disposition(origin, signal);
-        summary.total += 1;
-        match signal {
-            SkillSignal::Recent => summary.recent += 1,
-            SkillSignal::Aging => summary.aging += 1,
-            SkillSignal::Unobserved => summary.unobserved += 1,
-            SkillSignal::InsufficientHistory => summary.insufficient_history += 1,
-        }
-        match cleanup_disposition {
-            CleanupDisposition::Keep => cleanup.keep += 1,
-            CleanupDisposition::ManualReview => cleanup.manual_review += 1,
-            CleanupDisposition::ManagedNoManualCleanup => cleanup.managed_no_manual_cleanup += 1,
-            CleanupDisposition::Defer => cleanup.defer += 1,
-            CleanupDisposition::InvestigateOrigin => cleanup.investigate_origin += 1,
-        }
-        items.push(SkillUsageItem {
-            name: skill.name,
-            scope: skill.scope,
-            origin,
-            manifest_path: skill.path,
-            signal,
-            cleanup_disposition,
-            last_observed_use_at: last.map(|use_| use_.timestamp.clone()),
-            age_days,
-            observed_uses_in_window: observed.len(),
-            last_evidence: last.map(|use_| use_.evidence.clone()),
-            last_observed_epoch: last.map(|use_| use_.epoch),
-        });
-    }
-
-    items.sort_by(|left, right| {
-        left.cleanup_disposition
-            .sort_rank()
-            .cmp(&right.cleanup_disposition.sort_rank())
-            .then_with(|| left.signal.sort_rank().cmp(&right.signal.sort_rank()))
-            .then_with(|| left.last_observed_epoch.cmp(&right.last_observed_epoch))
-            .then_with(|| left.name.cmp(&right.name))
-            .then_with(|| left.manifest_path.cmp(&right.manifest_path))
+    let assessment_skills = skills
+        .into_iter()
+        .map(|skill| {
+            let identity = SkillIdentity::from(&skill);
+            let origin = origin_classifier.classify(&skill.path, &skill.scope);
+            AssessmentSkillEvidence {
+                name: skill.name,
+                scope: skill.scope,
+                origin,
+                manifest_path: skill.path,
+                observed: evidence.by_skill.remove(&identity).unwrap_or_default(),
+            }
+        })
+        .collect();
+    let Assessment {
+        coverage_status: status,
+        summary,
+        cleanup,
+        items,
+        verdict,
+    } = assess(AssessmentInput {
+        observed_epoch,
+        history_from_epoch: evidence.history_from.as_ref().map(|value| value.1),
+        history_through_epoch: evidence.history_through.as_ref().map(|value| value.1),
+        rollouts_discovered: evidence.rollouts_discovered,
+        rollouts_excluded_current: evidence.rollouts_excluded_current,
+        rollouts_unreadable: evidence.rollouts_unreadable,
+        discovery_errors: evidence.discovery_errors,
+        records_unreadable: evidence.records_unreadable,
+        rollouts_scanned: evidence.rollouts_scanned,
+        catalog_errors,
+        truncated: evidence.truncated,
+        skills: assessment_skills,
     });
 
     let mut findings = Vec::new();
@@ -1290,16 +1107,6 @@ fn build_report(
             ),
         ));
     }
-    let verdict = if status == CoverageStatus::Complete
-        && cleanup.manual_review == 0
-        && cleanup.defer == 0
-        && cleanup.investigate_origin == 0
-    {
-        Verdict::BaselineOk
-    } else {
-        Verdict::Review
-    };
-
     let items_returned = items.len();
     SkillsInspectionReport {
         schema_version: REPORT_SCHEMA_VERSION,
@@ -1337,60 +1144,18 @@ fn build_report(
     }
 }
 
-const fn cleanup_disposition(origin: SkillOrigin, signal: SkillSignal) -> CleanupDisposition {
-    match origin {
-        SkillOrigin::Plugin | SkillOrigin::System | SkillOrigin::Admin => {
-            CleanupDisposition::ManagedNoManualCleanup
-        }
-        SkillOrigin::Unknown => CleanupDisposition::InvestigateOrigin,
-        SkillOrigin::Personal | SkillOrigin::Project => match signal {
-            SkillSignal::Recent => CleanupDisposition::Keep,
-            SkillSignal::Aging | SkillSignal::Unobserved => CleanupDisposition::ManualReview,
-            SkillSignal::InsufficientHistory => CleanupDisposition::Defer,
-        },
-    }
-}
-
+#[cfg(test)]
 fn coverage_status(evidence: &UsageEvidence, catalog_errors: usize) -> CoverageStatus {
-    let candidate_rollouts = evidence
-        .rollouts_discovered
-        .saturating_sub(evidence.rollouts_excluded_current);
-    let partial = evidence.rollouts_unreadable > 0
-        || evidence.discovery_errors > 0
-        || evidence.records_unreadable > 0
-        || evidence.truncated
-        || catalog_errors > 0
-        || evidence.rollouts_scanned != candidate_rollouts;
-
-    if partial {
-        CoverageStatus::Partial
-    } else if candidate_rollouts == 0 {
-        CoverageStatus::None
-    } else {
-        CoverageStatus::Complete
-    }
-}
-
-fn history_is_sufficient(
-    observed_epoch: i64,
-    history_from: Option<i64>,
-    history_through: Option<i64>,
-) -> bool {
-    let Some(history_from) = history_from else {
-        return false;
-    };
-    let Some(history_through) = history_through else {
-        return false;
-    };
-    history_from <= observed_epoch - (UNOBSERVED_HISTORY_DAYS as i64 * SECONDS_PER_DAY)
-        && history_through >= observed_epoch - (RECENT_DAYS as i64 * SECONDS_PER_DAY)
-}
-
-fn age_days(observed_epoch: i64, evidence_epoch: i64) -> u64 {
-    observed_epoch
-        .saturating_sub(evidence_epoch)
-        .max(0)
-        .div_euclid(SECONDS_PER_DAY) as u64
+    assessment_coverage_status(
+        evidence.rollouts_discovered,
+        evidence.rollouts_excluded_current,
+        evidence.rollouts_unreadable,
+        evidence.discovery_errors,
+        evidence.records_unreadable,
+        evidence.rollouts_scanned,
+        catalog_errors,
+        evidence.truncated,
+    )
 }
 
 fn current_epoch_seconds() -> io::Result<i64> {

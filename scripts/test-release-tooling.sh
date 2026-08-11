@@ -2,6 +2,11 @@
 
 set -eu
 
+command -v jq >/dev/null 2>&1 || {
+  echo "jq is unavailable" >&2
+  exit 2
+}
+
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 cd "$repo_root"
@@ -39,6 +44,29 @@ if scripts/check-release.sh "$version" "$output_root" >/dev/null 2>&1; then
   exit 1
 fi
 mv "$formula_clean" "$formula"
+
+manifest="$output_root/v$version/release.json"
+manifest_clean="$manifest.clean"
+cp "$manifest" "$manifest_clean"
+sed 's/"product": "goalrail"/"product": "wrong"/' "$manifest_clean" >"$manifest"
+if scripts/check-release.sh "$version" "$output_root" >/dev/null 2>&1; then
+  echo "release tooling accepted a mismatched manifest" >&2
+  exit 1
+fi
+cp "$manifest_clean" "$manifest"
+
+jq '. + {unexpected: true}' "$manifest_clean" >"$manifest"
+if scripts/check-release.sh "$version" "$output_root" >/dev/null 2>&1; then
+  echo "release tooling accepted an extra manifest field" >&2
+  exit 1
+fi
+
+jq '.schemaVersion = "1"' "$manifest_clean" >"$manifest"
+if scripts/check-release.sh "$version" "$output_root" >/dev/null 2>&1; then
+  echo "release tooling accepted a mistyped manifest field" >&2
+  exit 1
+fi
+mv "$manifest_clean" "$manifest"
 
 artifact="$output_root/v$version/goalrail-v$version-aarch64-apple-darwin.tar.gz"
 printf 'tampered' >>"$artifact"

@@ -2,13 +2,16 @@ min_version = "2025.8.11"
 
 [tools]
 rust = "1.97.1"
+jq = "1.8.2"
 "cargo:cargo-llvm-cov" = "0.8.7"
 "cargo:cargo-mutants" = "27.1.0"
+"cargo:cargo-public-api" = "0.52.0"
 
 [tasks.setup]
 description = "Install pinned tools and the pre-push hook"
 run = [
   "mise install",
+  "rustup toolchain install nightly-2026-08-07 --profile minimal",
   "rustup component add llvm-tools-preview",
   "./scripts/install-git-hooks.sh",
 ]
@@ -21,21 +24,6 @@ run = "cargo fmt --all -- --check"
 description = "Run Clippy with warnings denied"
 run = "cargo clippy --workspace --all-targets -- -D warnings"
 
-[tasks.architecture]
-description = "Check the trial architecture fitness contract"
-run = [
-  "ruby ./scripts/check-architecture.rb",
-  "ruby ./scripts/check-architecture-trend.rb",
-]
-
-[tasks."test:architecture"]
-description = "Test architecture fitness pass and fail behavior"
-run = [
-  "./scripts/test-skills-boundary.sh",
-  "./scripts/test-architecture.sh",
-  "./scripts/test-architecture-trend.sh",
-]
-
 [tasks.coverage]
 description = "Run tests and report workspace coverage"
 run = "cargo llvm-cov --workspace --summary-only"
@@ -45,8 +33,6 @@ description = "Run the local CI checks"
 run = [
   { task = "fmt" },
   { task = "lint" },
-  { task = "architecture" },
-  { task = "test:architecture" },
   { task = "coverage" },
   { task = "test:verification-receipts" },
 ]
@@ -80,6 +66,14 @@ run = './scripts/rust-verification-receipts.sh verify-ci "$@"'
 [tasks."test:verification-receipts"]
 description = "Test local Rust verification receipt behavior"
 run = "./scripts/test-rust-verification-receipts.sh"
+
+[tasks."architecture:public-api"]
+description = "Compare the Rust facade with the accepted public API snapshot"
+run = "./scripts/check-public-api.sh"
+
+[tasks."test:public-api"]
+description = "Test the public API trial fail-closed behavior"
+run = "./scripts/test-public-api.sh"
 
 [tasks."site:build"]
 description = "Build the static Goalrail site and its WebAssembly motion module"

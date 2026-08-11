@@ -92,25 +92,31 @@ fi
 grep -Fq 'depends_on :macos' "$formula" || fail "formula lacks the macOS guard"
 grep -Fq 'depends_on arch: :arm64' "$formula" || fail "formula lacks the arm64 guard"
 
-ruby -rjson -e '
-  manifest = JSON.parse(File.read(ARGV.fetch(0)))
-  expected = {
-    "schemaVersion" => 1,
-    "product" => "goalrail",
-    "version" => ARGV.fetch(1),
-    "tag" => ARGV.fetch(2),
-    "target" => ARGV.fetch(3),
-    "binary" => "gr",
-    "binaryVersion" => "gr #{ARGV.fetch(1)}",
-    "license" => "MIT",
-    "artifact" => ARGV.fetch(4),
-    "artifactSizeBytes" => File.size(ARGV.fetch(7)),
-    "sha256" => ARGV.fetch(5),
-    "checksumArtifact" => "#{ARGV.fetch(4)}.sha256",
-    "downloadUrl" => ARGV.fetch(6)
-  }
-  abort "release manifest does not match artifacts" unless manifest == expected
-' "$manifest" "$version" "$tag" "$target" "$artifact" "$actual_checksum" "$download_url" "$archive"
+command -v jq >/dev/null 2>&1 || fail "jq is unavailable"
+archive_size=$(wc -c <"$archive" | tr -d ' ')
+jq -e \
+  --arg version "$version" \
+  --arg tag "$tag" \
+  --arg target "$target" \
+  --arg artifact "$artifact" \
+  --arg sha256 "$actual_checksum" \
+  --arg download_url "$download_url" \
+  --argjson artifact_size "$archive_size" \
+  '. == {
+    schemaVersion: 1,
+    product: "goalrail",
+    version: $version,
+    tag: $tag,
+    target: $target,
+    binary: "gr",
+    binaryVersion: ("gr " + $version),
+    license: "MIT",
+    artifact: $artifact,
+    artifactSizeBytes: $artifact_size,
+    sha256: $sha256,
+    checksumArtifact: ($artifact + ".sha256"),
+    downloadUrl: $download_url
+  }' "$manifest" >/dev/null || fail "release manifest does not match artifacts"
 
 printf '{"schemaVersion":1,"verdict":"READY","version":"%s","artifact":"%s","sha256":"%s"}\n' \
   "$version" "$artifact" "$actual_checksum"

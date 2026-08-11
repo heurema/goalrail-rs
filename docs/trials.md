@@ -58,56 +58,57 @@ only commands that run their checks before writing evidence.
 ## architecture-fitness-v0
 
 - Owner: [decision 0004](decisions/0004-trial-native-architecture-fitness.md)
-  and [`ARCHITECTURE-SPINE.md`](../ARCHITECTURE-SPINE.md#architecture-fitness-v0-trial)
+  and [`ARCHITECTURE-SPINE.md`](../ARCHITECTURE-SPINE.md#enforcement-status)
 - Added: `2026-08-10`
-- Revisit: after three architecture-affecting milestones or by `2026-09-10`,
-  whichever comes first.
+- Closed: `2026-08-11`
+- Current decision: `REMOVE`.
+
+The original trend signal was useful: it exposed `skills.rs` as a cumulative
+cohesion hotspot and led to the owner-accepted AD-6 evidence-to-assessment
+boundary. The first Rust extraction moved the neutral model and pure cleanup
+policy without changing public behavior.
+
+The implementation of the fitness gate was not reliable. Repeated reviews found
+runtime incompatibility, false accepts, false rejects, and semantic gaps. The
+checker grew into a custom Ruby parser for Rust source and compiler output.
+Repository-owned Ruby tooling is not an accepted implementation choice for
+Goalrail, and this checker did not justify an exception.
+
+The Ruby checkers, fixtures, `mise` tasks, and CI integration were removed. The
+Homebrew `.rb` formula remains because Ruby DSL is Homebrew's required package
+format and is not part of the architecture trial. CI currently makes no green
+architecture-conformance claim.
+
+Before the next AD-6 stage extraction or skills behavior milestone, evaluate a
+mature maintained compiler-aware tool against the exact graph and purity rules.
+Focused project-specific rules remain allowed when their claims are honestly
+scoped and sabotage-tested; do not implement them as repository-owned Ruby.
+
+## cargo-public-api-facade
+
+- Owner: [decision 0006](decisions/0006-trial-cargo-public-api.md)
+  and [`ARCHITECTURE-SPINE.md`](../ARCHITECTURE-SPINE.md#enforcement-status)
+- Added: `2026-08-11`
+- Revisit: after three real facade-change reviews or by `2026-09-11`, whichever
+  comes first.
 - Current decision: `TRIAL`.
 
-Record only an architecture violation that changes the implementation, a false
-accept, a false reject, an unclear failure, noticeable runtime or maintenance
-cost, a manual rule that should become executable, or a check that is modified,
-moved, or removed. Routine green runs are not observations.
+The initial canary caught public additions, signature changes, enum variants,
+explicit trait impls, re-exports, macro-generated public items, auto-trait loss,
+and `non_exhaustive` removal without reacting to a private-only change. It did
+not detect a `#[doc(hidden)] pub` item. The full Goalrail output also exposed 21
+unresolved rustdoc references around auto traits, so the accepted task omits
+blanket, auto-trait, and auto-derived impls and refuses any remaining unresolved
+reference. The trial therefore protects only its checked-in rustdoc-visible
+facade slice and remains outside normal CI.
 
-Original baseline observation: AD-1 through AD-5 conformed, but only the exact
-workspace shape, owned dependency graph, source-level facade declarations,
-`Verdict` variants, and site owned-dependency isolation are automated. AD-1 and
-AD-2 remain manual. `skills.rs` is a cohesion hotspot combining multiple
-responsibilities; v0 records that signal without imposing a line-count limit or
-claiming an internal boundary that has not been decided.
+Record a material facade diff found, a false accept, a false reject, confusing
+snapshot review, noticeable runtime cost, unresolved rustdoc reference, or a
+change to the pinned toolchain, target, feature set, or trial contract.
 
-First canary and review observation (`2026-08-10`): the initial implementation
-used a Ruby API unavailable in the supported local runtime, accepted signature
-changes (including multiline signatures) and public methods placed after a test
-module, and omitted per-AD statuses on failed runs. The checker now uses
-compatible iteration, snapshots full literal declarations across every library
-source file, prints all AD statuses on both pass and failure, and has regression
-fixtures for those failure modes.
-
-Pre-fix trend receipt (`2026-08-10`): the generic canary reports
-`crates/gr-inspect-codex/src/skills.rs` as `REVIEW`. Across revisions
-`351328b -> b8f5d56 -> 84c9e8e`, source lines grow
-`2763 -> 3104 -> 3208` and top-level items grow `81 -> 86 -> 91`; the current
-file is above its crate-relative Tukey upper fence of `1717` source lines. This
-receipt is evidence of a cumulative hotspot, not a decided module split or an
-AD violation. Preserve it unchanged until a later milestone tests a proposed
-boundary against the same diagnostic.
-
-Boundary-analysis observation (`2026-08-10`): the trend signal produced
-[proposal 0005](decisions/0005-propose-skill-evidence-assessment-boundary.md).
-The verified direction is evidence acquisition to assessment to
-presentation, with orchestration above the stages. The owner accepted this
-direction on `2026-08-10`. Moving colocated tests alone is explicitly not
-considered resolution of the hotspot.
-
-AD-6 adoption observation (`2026-08-10`): the accepted boundary is now in the
-spine and every architecture receipt reports it. The current repository
-reports `AD-6: REVIEW - accepted boundary is not implemented`, preserving the
-pre-fix problem before any Rust move. A provisional source checker rejects
-partial or unclassified stage topology, a pinned `history -> presentation`
-edge, all five forbidden assessment effect categories, and comment/nested-module
-declaration spoofing, including brace characters inside char and byte-char
-literals and stage declarations hidden behind attributes. Its allowed-topology
-fixture also stays `REVIEW`; semantic module-graph enforcement remains the
-revisit condition for the first extraction. This modification adds useful
-negative detection without treating text parsing as proof of conformance.
+The first closure review found that the documented setup neither installed the
+required nightly toolchain nor pinned the newly required `jq`. The trial was
+modified before closure: setup now installs `jq` 1.8.2 and the exact
+`nightly-2026-08-07` toolchain, and the checker runs that dated toolchain instead
+of the mutable `nightly` alias. The exact toolchain produced the same 24-line
+facade snapshot.

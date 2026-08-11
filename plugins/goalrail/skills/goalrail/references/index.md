@@ -1,11 +1,10 @@
 # Goalrail agent index
 
 Use the CLI's own `--help` output for exact syntax and this index for intent
-routing and evidence semantics. The public Goalrail CLI `0.2.0` supports the
-summary and skills workflows below. The first shared CLI/plugin release is
-planned as `v0.3.0`, including the plugins drilldown. Until that release exists,
-do not invoke the drilldown unless the installed binary advertises `plugins`
-in `gr inspect codex --help`.
+routing and evidence semantics. Public Goalrail CLI `0.3.0` and later supports
+the summary, skills, and plugins workflows below. Still invoke only commands
+advertised by the installed binary in `gr inspect codex --help`; a version
+string alone is not capability evidence.
 
 ## Inspect a Codex environment
 
@@ -50,9 +49,8 @@ Use when the user asks which skills belong to plugins or wants plugin evidence:
 gr inspect codex plugins --json
 ```
 
-This is a source-preview workflow until the next Goalrail release. If the
-installed CLI does not advertise it, report the version boundary instead of
-compiling from source or substituting another command.
+If the installed CLI does not advertise this workflow, report the capability
+boundary instead of compiling from source or substituting another command.
 
 Check `skillEvidence.observedAt`, thresholds, history coverage, link coverage,
 invalid or duplicate identities, and counting bases. Lack of observed skill use

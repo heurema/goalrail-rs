@@ -105,6 +105,6 @@ grep -F 'skills/list did not expose the installed Goalrail skill' "$remote_smoke
 grep -F 'if the user says only "Goalrail", ask which target they mean' "$skill" >/dev/null
 grep -F 'If `gr` is absent, read' "$skill" >/dev/null
 grep -F 'gr inspect codex --help' "$skill" >/dev/null
-grep -F 'first shared CLI/plugin release is' "$index" >/dev/null
+grep -F 'Public Goalrail CLI `0.3.0` and later supports' "$index" >/dev/null
 
 echo "GOALRAIL_PLUGIN_TEST_OK marketplace=goalrail plugin=goalrail skill=goalrail"

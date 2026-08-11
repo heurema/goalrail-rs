@@ -117,7 +117,7 @@ registration does not authorize plugin installation. These commands are not
 run by `mise run test:goalrail-plugin` or `mise run ci`.
 
 The marketplace entry uses the remote `git-subdir` source and pins
-`plugins/goalrail` to the immutable shared release tag `v0.3.0`. The marketplace
+`plugins/goalrail` to the immutable shared release tag `v0.3.1`. The marketplace
 catalog can keep refreshing from `main` without making the installed plugin
 follow the branch automatically. CLI crates and the plugin share one release
 version. A behavior change in either advances the whole Goalrail release and
@@ -127,7 +127,7 @@ Run `mise run test:goalrail-plugin` for offline package validation. After the
 exact ref has been pushed, run the real Git-backed smoke test with:
 
 ```bash
-mise run smoke:goalrail-plugin-remote -- main 0.3.0
+mise run smoke:goalrail-plugin-remote -- main 0.3.1
 ```
 
 The smoke test uses an isolated temporary `CODEX_HOME`; it does not register or
@@ -135,10 +135,9 @@ install the plugin in the operator's normal Codex profile. It verifies the Git
 marketplace source, exact remote payload URL/path/tag and resolved tag commit,
 installed plugin identity and version, and that Codex `skills/list` exposes the
 `goalrail` skill from the installed plugin cache.
-The public `v0.2.0` binary supports the summary and skills flows but predates
-the plugins drilldown. The first shared CLI/plugin release is planned as
-`v0.3.0`. Until it is published, the trial skill checks the installed CLI help
-surface and labels that workflow as source-preview.
+Public CLI `v0.3.0` and later supports the summary, skills, and plugins flows.
+The skill still checks the installed CLI help surface before routing because a
+version string alone is not capability evidence.
 
 ## Design boundaries
 
@@ -186,18 +185,18 @@ without publishing it:
 
 ```bash
 mise run release:test
-mise run release:prepare -- 0.3.0
-mise run release:check -- 0.3.0
+mise run release:prepare -- 0.3.1
+mise run release:check -- 0.3.1
 ```
 
-The generated bundle under `dist/v0.3.0/` contains the binary and MIT license
+The generated bundle under `dist/v0.3.1/` contains the binary and MIT license
 archive, its SHA-256, a release manifest, and a rendered Homebrew formula.
 `dist/` is ignored and is never a source of truth.
 
 Before any public release, run the read-only source gate:
 
 ```bash
-mise run release:preflight -- 0.3.0
+mise run release:preflight -- 0.3.1
 ```
 
 It fails closed unless the version matches, the checkout is clean and tagged,

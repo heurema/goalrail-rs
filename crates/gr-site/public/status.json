@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "state": "active_development",
-  "current": "Inspect Codex skill evidence available",
-  "next": "adoption evidence and cleanup UX refinement",
+  "current": "Codex skill and plugin evidence released",
+  "next": "Windows and Linux release support",
   "source": "README.md",
-  "updated": "2026-08-10"
+  "updated": "2026-08-11"
 }

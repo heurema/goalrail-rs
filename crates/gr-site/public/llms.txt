@@ -10,5 +10,6 @@ installation path and the current public project state.
 - Source: https://github.com/heurema/goalrail-rs
 - Releases: https://github.com/heurema/goalrail-rs/releases
 
-The public CLI currently provides `gr inspect codex`. Skill evidence is in
-active development and is not part of the released command surface yet.
+The public CLI provides `gr inspect codex` with skills and plugins drilldowns.
+Use the command's JSON evidence and coverage fields before drawing cleanup
+conclusions.

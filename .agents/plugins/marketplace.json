@@ -7,7 +7,7 @@
         "source": "git-subdir",
         "url": "https://github.com/heurema/goalrail-rs.git",
         "path": "./plugins/goalrail",
-        "ref": "v0.3.0"
+        "ref": "v0.3.1"
       },
       "policy": {
         "installation": "AVAILABLE",

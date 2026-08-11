@@ -1,6 +1,6 @@
 {
   "name": "goalrail",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Route Codex environment inspection and cleanup intents through the evidence-backed Goalrail CLI.",
   "author": {
     "name": "Heurema",

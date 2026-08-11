@@ -14,10 +14,10 @@ host.
    already clear.
 2. Before a Goalrail command, resolve `gr` with `command -v gr`, inspect
    `gr --version`, and read `gr inspect codex --help`. Route only to a
-   subcommand advertised by that installed binary. Public CLI `0.2.0` supports
-   the summary and skills flows; the first shared CLI/plugin release is planned
-   as `0.3.0`, including the plugins drilldown. Until that release exists,
-   treat the drilldown as a source-preview capability. If `gr` is absent, read
+   subcommand advertised by that installed binary. Public CLI `0.3.0` and later
+   supports the summary, skills, and plugins flows. Keep capability detection:
+   a version string alone does not prove the installed command surface.
+   If `gr` is absent, read
    `references/install.md`, perform only its read-only preflight, and offer the
    native CLI installation as a separate approval-gated action.
 3. Resolve lifecycle intent before reading instructions:

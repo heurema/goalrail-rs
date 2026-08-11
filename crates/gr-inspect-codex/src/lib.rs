@@ -18,7 +18,7 @@ use process::run_bounded;
 use serde::Serialize;
 
 pub use skills::{SkillsInspectionOutcome, inspect_codex_skill_actions, inspect_codex_skills};
-pub use use_case::{InspectionOutcome, inspect_codex};
+pub use use_case::{InspectionOutcome, inspect_codex, inspect_codex_plugins};
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 

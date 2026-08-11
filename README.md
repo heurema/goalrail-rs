@@ -15,6 +15,7 @@ cargo run -p gr -- inspect codex
 cargo run -p gr -- inspect codex --json
 cargo run -p gr -- inspect codex skills --actionable --json
 cargo run -p gr -- inspect codex skills --json
+cargo run -p gr -- inspect codex plugins --json
 ```
 
 `gr inspect codex` checks the available Codex diagnostics, features,
@@ -66,6 +67,31 @@ unknown ownership is `investigate_origin`. Findings use
 changes verdict semantics: stale managed skills no longer produce `REVIEW` by
 themselves, while owner-managed cleanup candidates, insufficient evidence, or
 unknown ownership still do.
+
+`gr inspect codex plugins --json` returns the installed plugin inventory from
+the native `codex plugin list --json` surface and joins it to the active
+plugin-origin skills from the same bounded skill-evidence pipeline used by the
+skills drilldown. The internal records for plugins, skills, links, and observed
+uses remain separate; the JSON nests linked skills under each plugin for agent
+convenience. A link is accepted only when the exact skill manifest path falls
+under exactly one plugin root: either native `source.path` or the installed
+cache root derived from `CODEX_HOME` and the native `(marketplace, name,
+version)` identity. Unlinked and ambiguous skills are reported explicitly and
+produce `REVIEW` rather than a guessed relation.
+
+Items are sorted by exact plugin ID and report the plugin name, marketplace,
+version, enabled state, auth policy, active linked skills, observed-use counts,
+and latest observed skill use. `observedAt`, signal thresholds, history and link
+coverage are included so an agent can judge the evidence. Per-skill counts use
+unique task turns; the plugin total explicitly reports that it is the sum of
+those per-skill counts and can therefore count one turn more than once when it
+uses several skills. Invalid path components or duplicate plugin IDs produce
+`REVIEW` and are listed instead of being linked optimistically. Disabled
+plugins remain factual inventory and do not produce `REVIEW`; lack of observed
+skill use never means that a plugin is unused because plugins can also provide
+MCP, apps, and other non-skill capabilities. The command does not recommend
+cleanup, expose the available marketplace catalog, or enable, disable, install,
+or remove anything. It writes no cache, durable memory, or database.
 
 ## Design boundaries
 

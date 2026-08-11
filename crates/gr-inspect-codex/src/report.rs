@@ -16,6 +16,7 @@ const NONINTERACTIVE_TERMINAL_SUMMARY: &str = "TERM=dumb - colors and cursor con
 pub(crate) enum ReportKind {
     Summary,
     Skills,
+    Plugins,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -144,7 +145,7 @@ impl CodexFailureReport {
             kind,
             verdict,
             drilldowns: if kind == ReportKind::Summary {
-                skill_drilldowns()
+                codex_drilldowns()
             } else {
                 Vec::new()
             },
@@ -318,18 +319,26 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
             config_layers: facts.agents.discovery.project_config_paths.clone(),
             instruction_sources: facts.agents.sources.clone(),
         },
-        drilldowns: skill_drilldowns(),
+        drilldowns: codex_drilldowns(),
         findings,
     }
 }
 
-fn skill_drilldowns() -> Vec<Drilldown> {
-    vec![Drilldown {
-        section: "skills".to_owned(),
-        argv: ["gr", "inspect", "codex", "skills", "--actionable", "--json"]
-            .map(str::to_owned)
-            .to_vec(),
-    }]
+fn codex_drilldowns() -> Vec<Drilldown> {
+    vec![
+        Drilldown {
+            section: "skills".to_owned(),
+            argv: ["gr", "inspect", "codex", "skills", "--actionable", "--json"]
+                .map(str::to_owned)
+                .to_vec(),
+        },
+        Drilldown {
+            section: "plugins".to_owned(),
+            argv: ["gr", "inspect", "codex", "plugins", "--json"]
+                .map(str::to_owned)
+                .to_vec(),
+        },
+    ]
 }
 
 fn is_noninteractive_terminal_limitation(key: &str, check: &DoctorCheck) -> bool {
@@ -424,6 +433,11 @@ mod tests {
         assert_eq!(
             report.drilldowns[0].argv,
             ["gr", "inspect", "codex", "skills", "--actionable", "--json",]
+        );
+        assert_eq!(report.drilldowns[1].section, "plugins");
+        assert_eq!(
+            report.drilldowns[1].argv,
+            ["gr", "inspect", "codex", "plugins", "--json"]
         );
         assert!(report.findings.is_empty());
     }

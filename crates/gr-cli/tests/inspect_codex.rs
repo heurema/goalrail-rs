@@ -164,6 +164,159 @@ fn reports_live_skill_catalog_usage_and_excludes_the_current_thread() {
 }
 
 #[test]
+fn links_plugins_to_active_skills_and_observed_use_without_cleanup_claims() {
+    let tree = TestDirectory::new();
+    let fake_bin = tree.directory("fake-bin");
+    let codex_home = tree.directory("codex-home");
+    let project = tree.directory("project");
+    tree.directory("project/.git");
+    let skill_manifest = tree.file(
+        "codex-home/plugins/cache/market/alpha/1.0.0/skills/alpha-skill/SKILL.md",
+        "# Alpha skill\n",
+    );
+    let rollout = concat!(
+        "{\"timestamp\":\"2999-01-01T00:00:00Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\"plugin-thread\"}}\n",
+        "{\"timestamp\":\"2999-01-01T00:00:01Z\",\"type\":\"turn_context\",\"payload\":{\"turn_id\":\"turn-1\"}}\n",
+        "{\"timestamp\":\"2999-01-01T00:00:02Z\",\"type\":\"response_item\",\"payload\":{\"type\":\"custom_tool_call\",\"input\":\"cat __SKILL_MANIFEST__\"}}\n"
+    )
+    .replace("__SKILL_MANIFEST__", &skill_manifest.to_string_lossy());
+    tree.file(
+        "codex-home/sessions/2999/01/rollout-2999-01-01T00-00-00-plugin-use.jsonl",
+        &rollout,
+    );
+    write_fake_codex(&fake_bin);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_gr"))
+        .args(["inspect", "codex", "plugins", "--json"])
+        .current_dir(&project)
+        .env("PATH", &fake_bin)
+        .env("CODEX_HOME", &codex_home)
+        .env("FAKE_CASE", "plugins-linked-version-fail")
+        .output()
+        .expect("gr should run the plugins drilldown");
+    let stdout = assert_report(output, 0, "BASELINE_OK");
+    let report: serde_json::Value =
+        serde_json::from_str(&stdout).expect("plugins output should be JSON");
+
+    assert_eq!(report["kind"], "plugins");
+    assert_eq!(report["summary"]["installed"], 2);
+    assert_eq!(report["summary"]["enabled"], 1);
+    assert_eq!(report["summary"]["pluginSkills"], 1);
+    assert_eq!(report["summary"]["linkedPluginSkills"], 1);
+    assert_eq!(report["summary"]["pluginsWithSkills"], 1);
+    assert_eq!(report["summary"]["pluginsWithObservedSkillUse"], 1);
+    assert!(report["skillEvidence"]["observedAt"].is_string());
+    assert_eq!(report["skillEvidence"]["thresholds"]["recentDays"], 7);
+    assert_eq!(
+        report["skillEvidence"]["thresholds"]["unobservedHistoryDays"],
+        30
+    );
+    assert_eq!(
+        report["skillEvidence"]["skillCountingBasis"],
+        "unique_thread_turns"
+    );
+    assert_eq!(
+        report["skillEvidence"]["pluginAggregationBasis"],
+        "sum_of_per_skill_unique_thread_turn_counts"
+    );
+    assert_eq!(
+        report["skillEvidence"]["invalidPluginIds"]
+            .as_array()
+            .map(Vec::len),
+        Some(0)
+    );
+    assert_eq!(
+        report["skillEvidence"]["duplicatePluginIds"]
+            .as_array()
+            .map(Vec::len),
+        Some(0)
+    );
+    assert_eq!(report["skillEvidence"]["coverage"]["status"], "complete");
+    assert_eq!(report["skillEvidence"]["linkCoverage"]["linked"], 1);
+    assert_eq!(report["skillEvidence"]["linkCoverage"]["unlinked"], 0);
+    assert_eq!(report["skillEvidence"]["linkCoverage"]["ambiguous"], 0);
+    assert_eq!(report["items"].as_array().map(Vec::len), Some(2));
+    assert_eq!(report["items"][0]["pluginId"], "alpha@market");
+    assert_eq!(report["items"][0]["name"], "alpha");
+    assert_eq!(report["items"][0]["marketplace"], "market");
+    assert_eq!(report["items"][0]["version"], "1.0.0");
+    assert_eq!(report["items"][0]["enabled"], true);
+    assert_eq!(report["items"][0]["authPolicy"], "ON_USE");
+    assert_eq!(report["items"][0]["skillSummary"]["active"], 1);
+    assert_eq!(report["items"][0]["skillSummary"]["withObservedUse"], 1);
+    assert_eq!(
+        report["items"][0]["skillSummary"]["observedUsesInWindow"],
+        1
+    );
+    assert_eq!(report["items"][0]["skills"][0]["name"], "alpha:skill");
+    assert_eq!(
+        report["items"][0]["skills"][0]["manifestPath"],
+        skill_manifest.to_string_lossy().as_ref()
+    );
+    assert_eq!(report["items"][0]["skills"][0]["signal"], "recent");
+    assert_eq!(
+        report["items"][0]["skills"][0]["lastObservedUseAt"],
+        "2999-01-01T00:00:02Z"
+    );
+    assert_eq!(report["items"][1]["pluginId"], "zeta@market");
+    assert_eq!(report["items"][1]["enabled"], false);
+    assert_eq!(report["items"][1]["authPolicy"], serde_json::Value::Null);
+    assert_eq!(report["items"][1]["skillSummary"]["active"], 0);
+    assert_eq!(report["findings"].as_array().map(Vec::len), Some(0));
+    assert!(report.get("available").is_none());
+    assert!(report.get("cleanup").is_none());
+    assert!(report.get("usage").is_none());
+    assert!(report["items"][0].get("source").is_none());
+    assert!(!stdout.contains(r#""sourcePath""#));
+
+    let human = Command::new(env!("CARGO_BIN_EXE_gr"))
+        .args(["inspect", "codex", "plugins"])
+        .current_dir(&project)
+        .env("PATH", &fake_bin)
+        .env("CODEX_HOME", &codex_home)
+        .env("FAKE_CASE", "plugins-linked-version-fail")
+        .output()
+        .expect("gr should render the plugin inventory");
+    let human_stdout = String::from_utf8(human.stdout).expect("stdout should be UTF-8");
+    let human_stderr = String::from_utf8(human.stderr).expect("stderr should be UTF-8");
+    assert_eq!(human.status.code(), Some(0), "{human_stderr}");
+    assert!(human_stderr.is_empty());
+    assert!(
+        human_stdout.contains("Codex plugins: 2 installed, 1 enabled; 1/1 plugin skills linked")
+    );
+    assert!(human_stdout.contains("skills 1 active, 1 observed"));
+    assert!(human_stdout.contains("Verdict: BASELINE_OK"));
+}
+
+#[test]
+fn plugin_inventory_fails_closed_with_section_specific_reports() {
+    let tree = TestDirectory::new();
+    let empty_bin = tree.directory("empty-bin");
+    let fake_bin = tree.directory("fake-bin");
+    let codex_home = tree.directory("codex-home");
+    let project = tree.directory("project");
+    tree.directory("project/.git");
+    write_fake_codex(&fake_bin);
+
+    let blocked = run_gr_plugins(&empty_bin, &codex_home, &project, None);
+    let stdout = assert_report(blocked, 4, "BLOCKED");
+    assert!(stdout.contains(r#""kind": "plugins""#));
+    assert!(stdout.contains(r#""code": "plugins.unavailable""#));
+    assert!(!stdout.contains(r#""drilldowns""#));
+
+    for (fixture, code) in [
+        ("plugins-fail", "probe.plugins.failed"),
+        ("plugins-malformed", "probe.plugins.invalid_json"),
+        ("skills-fail", "plugins.skills.failed"),
+    ] {
+        let output = run_gr_plugins(&fake_bin, &codex_home, &project, Some(fixture));
+        let stdout = assert_report(output, 3, "INCOMPLETE");
+        assert!(stdout.contains(r#""kind": "plugins""#));
+        assert!(stdout.contains(&format!(r#""code": "{code}""#)));
+    }
+}
+
+#[test]
 fn ignores_the_exact_term_dumb_doctor_limitation() {
     let tree = TestDirectory::new();
     let fake_bin = tree.directory("fake-bin");
@@ -331,6 +484,11 @@ fn reports_project_and_instruction_sources_from_the_fixture() {
         report["drilldowns"][0]["argv"],
         serde_json::json!(["gr", "inspect", "codex", "skills", "--actionable", "--json"])
     );
+    assert_eq!(report["drilldowns"][1]["section"], "plugins");
+    assert_eq!(
+        report["drilldowns"][1]["argv"],
+        serde_json::json!(["gr", "inspect", "codex", "plugins", "--json"])
+    );
 }
 
 #[test]
@@ -382,6 +540,26 @@ fn run_gr(bin_path: &Path, codex_home: &Path, current_dir: &Path, fixture: Optio
     command.output().expect("gr should run")
 }
 
+fn run_gr_plugins(
+    bin_path: &Path,
+    codex_home: &Path,
+    current_dir: &Path,
+    fixture: Option<&str>,
+) -> Output {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_gr"));
+    command
+        .args(["inspect", "codex", "plugins", "--json"])
+        .current_dir(current_dir)
+        .env("PATH", bin_path)
+        .env("CODEX_HOME", codex_home);
+
+    if let Some(fixture) = fixture {
+        command.env("FAKE_CASE", fixture);
+    }
+
+    command.output().expect("gr should run")
+}
+
 fn assert_report(output: Output, expected_exit: i32, expected_verdict: &str) -> String {
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
     let stderr = String::from_utf8(output.stderr).expect("stderr should be UTF-8");
@@ -405,7 +583,7 @@ fn write_fake_codex(bin_path: &Path) {
 case "$1" in
   --version)
     case "$FAKE_CASE" in
-      version-fail) exit 7 ;;
+      version-fail|plugins-linked-version-fail) exit 7 ;;
       version-empty) printf '\n' ;;
       version-invalid-utf8) printf '\377' ;;
       version-signal) kill -TERM "$$" ;;
@@ -456,7 +634,10 @@ case "$1" in
       case "$FAKE_CASE" in
         plugins-fail|doctor-malformed-and-plugins-fail) exit 7 ;;
         plugins-malformed) printf '%s\n' '{}' ;;
-        *) printf '%s\n' '{"installed":[],"available":[]}' ;;
+        plugins-linked-version-fail)
+          printf '{"installed":[{"pluginId":"zeta@market","name":"zeta","marketplaceName":"market","version":"2.0.0","installed":true,"enabled":false,"source":{"path":"%s/native-sources/zeta","source":"local"}},{"pluginId":"alpha@market","name":"alpha","marketplaceName":"market","version":"1.0.0","installed":true,"enabled":true,"authPolicy":"ON_USE","source":{"path":"%s/native-sources/alpha","source":"local"}}],"available":[]}\n' "$CODEX_HOME" "$CODEX_HOME"
+          ;;
+        *) printf '%s\n' '{"installed":[{"pluginId":"zeta@market","name":"zeta","marketplaceName":"market","version":"2.0.0","installed":true,"enabled":false},{"pluginId":"alpha@market","name":"alpha","marketplaceName":"market","version":"1.0.0","installed":true,"enabled":true,"authPolicy":"ON_USE"}],"available":[{"pluginId":"available@market","name":"available","marketplaceName":"market","version":"3.0.0","installed":false,"enabled":false,"authPolicy":"ON_INSTALL"}]}' ;;
       esac
     fi
     ;;
@@ -474,7 +655,14 @@ case "$1" in
     read -r initialize_request
     printf '{"id":1,"result":{"codexHome":"%s"}}\n' "$CODEX_HOME"
     read -r skills_request
-    printf '{"id":2,"result":{"data":[{"cwd":"%s","skills":[{"name":"example","path":"/fixture/example/SKILL.md","scope":"user","enabled":true}],"errors":[]}]}}\n' "$PWD"
+    case "$FAKE_CASE" in
+      plugins-linked-version-fail)
+        printf '{"id":2,"result":{"data":[{"cwd":"%s","skills":[{"name":"alpha:skill","path":"%s/plugins/cache/market/alpha/1.0.0/skills/alpha-skill/SKILL.md","scope":"user","enabled":true},{"name":"personal","path":"/fixture/personal/SKILL.md","scope":"user","enabled":true}],"errors":[]}]}}\n' "$PWD" "$CODEX_HOME"
+        ;;
+      *)
+        printf '{"id":2,"result":{"data":[{"cwd":"%s","skills":[{"name":"example","path":"/fixture/example/SKILL.md","scope":"user","enabled":true}],"errors":[]}]}}\n' "$PWD"
+        ;;
+    esac
     ;;
   *)
     exit 9

@@ -20,5 +20,6 @@ pub fn gr_inspect_codex::SkillsInspectionOutcome::to_human(&self) -> alloc::stri
 pub fn gr_inspect_codex::SkillsInspectionOutcome::to_pretty_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
 pub const fn gr_inspect_codex::SkillsInspectionOutcome::verdict(&self) -> gr_inspect_codex::Verdict
 pub fn gr_inspect_codex::inspect_codex() -> gr_inspect_codex::InspectionOutcome
+pub fn gr_inspect_codex::inspect_codex_plugins() -> gr_inspect_codex::InspectionOutcome
 pub fn gr_inspect_codex::inspect_codex_skill_actions() -> gr_inspect_codex::SkillsInspectionOutcome
 pub fn gr_inspect_codex::inspect_codex_skills() -> gr_inspect_codex::SkillsInspectionOutcome

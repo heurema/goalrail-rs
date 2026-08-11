@@ -5,12 +5,13 @@ use crate::{
     agents::InstructionScope,
     doctor::DoctorReport,
     inspection::{InspectionProbes, probe_inspection},
+    plugins::{PluginInspectionReport, build_plugin_inspection_report, probe_plugins},
     probe_version,
     report::{
         CodexFailureReport, CodexInspectionFacts, CodexInspectionReport, ReportFinding, ReportKind,
         synthesize_report,
     },
-    skills::ActiveSkillSummary,
+    skills::{ActiveSkillSummary, AssessedPluginSkills, inspect_assessed_plugin_skills},
 };
 
 #[derive(Debug)]
@@ -21,6 +22,7 @@ pub struct InspectionOutcome {
 #[derive(Debug)]
 enum OutcomeReport {
     Complete(Box<CodexInspectionReport>),
+    Plugins(Box<PluginInspectionReport>),
     Failure(CodexFailureReport),
 }
 
@@ -28,6 +30,7 @@ impl InspectionOutcome {
     pub const fn verdict(&self) -> Verdict {
         match &self.report {
             OutcomeReport::Complete(report) => report.verdict,
+            OutcomeReport::Plugins(report) => report.verdict(),
             OutcomeReport::Failure(report) => report.verdict,
         }
     }
@@ -39,6 +42,7 @@ impl InspectionOutcome {
     pub fn to_pretty_json(&self) -> Result<String, serde_json::Error> {
         match &self.report {
             OutcomeReport::Complete(report) => report.to_pretty_json(),
+            OutcomeReport::Plugins(report) => report.to_pretty_json(),
             OutcomeReport::Failure(report) => report.to_pretty_json(),
         }
     }
@@ -46,6 +50,7 @@ impl InspectionOutcome {
     pub fn to_human(&self) -> String {
         match &self.report {
             OutcomeReport::Complete(report) => format_human_report(report),
+            OutcomeReport::Plugins(report) => report.to_human(),
             OutcomeReport::Failure(report) => report
                 .findings
                 .first()
@@ -65,6 +70,106 @@ struct InspectionSummary<'a> {
 
 pub fn inspect_codex() -> InspectionOutcome {
     inspect_version_probe(probe_version())
+}
+
+pub fn inspect_codex_plugins() -> InspectionOutcome {
+    inspect_plugin_inventory_probe_with(probe_plugins(), inspect_assessed_plugin_skills)
+}
+
+#[cfg(test)]
+fn inspect_plugin_inventory_probe(
+    probe: io::Result<crate::plugins::PluginProbe>,
+) -> InspectionOutcome {
+    inspect_plugin_inventory_probe_with(probe, inspect_assessed_plugin_skills)
+}
+
+fn inspect_plugin_inventory_probe_with(
+    probe: io::Result<crate::plugins::PluginProbe>,
+    inspect_skills: impl FnOnce() -> io::Result<AssessedPluginSkills>,
+) -> InspectionOutcome {
+    match probe {
+        Ok(probe) if probe.timed_out => section_failure(
+            ReportKind::Plugins,
+            Verdict::Incomplete,
+            "probe.plugins.timeout",
+            "timeout",
+            "codex plugin list --json timed out after 15 seconds",
+        ),
+        Ok(probe) if probe.succeeded() => match probe.report() {
+            Ok(report) => match inspect_skills() {
+                Ok(evidence) => InspectionOutcome {
+                    report: OutcomeReport::Plugins(Box::new(build_plugin_inspection_report(
+                        report, evidence,
+                    ))),
+                },
+                Err(error) => plugin_skill_failure(error),
+            },
+            Err(error) => section_failure(
+                ReportKind::Plugins,
+                Verdict::Incomplete,
+                "probe.plugins.invalid_json",
+                "invalid",
+                format!("failed to parse codex plugin list JSON: {error}"),
+            ),
+        },
+        Ok(probe) => section_failure(
+            ReportKind::Plugins,
+            Verdict::Incomplete,
+            "probe.plugins.failed",
+            "failed",
+            format!(
+                "codex plugin list --json failed with {}",
+                format_exit_code(probe.exit_code)
+            ),
+        ),
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied
+            ) =>
+        {
+            section_failure(
+                ReportKind::Plugins,
+                Verdict::Blocked,
+                "plugins.unavailable",
+                "blocked",
+                format!("codex executable is unavailable: {error}"),
+            )
+        }
+        Err(error) => section_failure(
+            ReportKind::Plugins,
+            Verdict::Incomplete,
+            "probe.plugins.spawn_failed",
+            "failed",
+            format!("failed to run codex plugin list --json: {error}"),
+        ),
+    }
+}
+
+fn plugin_skill_failure(error: io::Error) -> InspectionOutcome {
+    match error.kind() {
+        io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied => section_failure(
+            ReportKind::Plugins,
+            Verdict::Blocked,
+            "plugins.skills.unavailable",
+            "blocked",
+            format!("plugin skill evidence is unavailable: {error}"),
+        ),
+        io::ErrorKind::TimedOut => section_failure(
+            ReportKind::Plugins,
+            Verdict::Incomplete,
+            "plugins.skills.timeout",
+            "timeout",
+            format!("plugin skill evidence timed out: {error}"),
+        ),
+        _ => section_failure(
+            ReportKind::Plugins,
+            Verdict::Incomplete,
+            "plugins.skills.failed",
+            "failed",
+            format!("failed to inspect plugin skill evidence: {error}"),
+        ),
+    }
 }
 
 fn inspect_version_probe(probe: io::Result<VersionProbe>) -> InspectionOutcome {
@@ -450,9 +555,19 @@ fn failure(
     status: &str,
     message: impl Into<String>,
 ) -> InspectionOutcome {
+    section_failure(ReportKind::Summary, verdict, code, status, message)
+}
+
+fn section_failure(
+    kind: ReportKind,
+    verdict: Verdict,
+    code: &str,
+    status: &str,
+    message: impl Into<String>,
+) -> InspectionOutcome {
     InspectionOutcome {
         report: OutcomeReport::Failure(CodexFailureReport::new(
-            ReportKind::Summary,
+            kind,
             verdict,
             ReportFinding::new(code, status, message),
         )),
@@ -578,6 +693,8 @@ fn format_human_report(report: &CodexInspectionReport) -> String {
 mod tests {
     use std::{collections::BTreeMap, path::PathBuf, time::Duration};
 
+    use gr_skill_assessment::CoverageStatus;
+
     use crate::{
         agents::{
             AgentDiscoveryOptions, AgentInspection, InstructionSource, ProjectTrust,
@@ -589,7 +706,7 @@ mod tests {
         mcp::McpProbe,
         plugins::PluginProbe,
         report::SkillOriginSummary,
-        skills::ActiveSkillSummary,
+        skills::{ActiveSkillSummary, AssessedSkillCoverage},
     };
 
     use super::*;
@@ -705,6 +822,29 @@ mod tests {
         assert_eq!(report.findings[0].code, code);
     }
 
+    fn complete_plugin_skill_evidence() -> AssessedPluginSkills {
+        AssessedPluginSkills {
+            plugin_cache_root: PathBuf::from("/plugins/cache"),
+            observed_at: "2026-08-11T00:00:00Z".to_owned(),
+            recent_days: 7,
+            unobserved_history_days: 30,
+            coverage: AssessedSkillCoverage {
+                status: CoverageStatus::Complete,
+                history_from: Some("2026-07-01T00:00:00Z".to_owned()),
+                history_through: Some("2026-08-10T00:00:00Z".to_owned()),
+                rollouts_discovered: 1,
+                rollouts_scanned: 1,
+                rollouts_excluded_current: 0,
+                rollouts_unreadable: 0,
+                discovery_errors: 0,
+                records_unreadable: 0,
+                catalog_errors: 0,
+                truncated: false,
+            },
+            skills: Vec::new(),
+        }
+    }
+
     #[test]
     fn exposes_complete_and_failure_outcomes_through_the_public_contract() {
         let doctor = clean_doctor();
@@ -735,6 +875,113 @@ mod tests {
             serde_json::from_str(&failed_json).expect("failure JSON should be valid");
         assert_eq!(failed_value["findings"][0]["code"], "fixture.blocked");
         assert_eq!(failed.to_human(), "fixture failure");
+    }
+
+    #[test]
+    fn plugin_inventory_classifies_every_probe_boundary() {
+        let successful = inspect_plugin_inventory_probe_with(
+            Ok(PluginProbe {
+                stdout: br#"{"installed":[{"pluginId":"one@test","name":"one","marketplaceName":"test","version":"1","installed":true,"enabled":true,"authPolicy":"ON_USE"}],"available":[]}"#.to_vec(),
+                stderr: Vec::new(),
+                exit_code: Some(0),
+                duration: Duration::ZERO,
+                timed_out: false,
+            }),
+            || Ok(complete_plugin_skill_evidence()),
+        );
+        assert_eq!(successful.verdict(), Verdict::BaselineOk);
+        assert!(!successful.is_failure());
+        let json = successful
+            .to_pretty_json()
+            .expect("plugin inventory should serialize");
+        assert!(json.contains(r#""kind": "plugins""#));
+        assert!(json.contains(r#""pluginId": "one@test""#));
+
+        for (kind, verdict, code) in [
+            (
+                io::ErrorKind::NotFound,
+                Verdict::Blocked,
+                "plugins.skills.unavailable",
+            ),
+            (
+                io::ErrorKind::PermissionDenied,
+                Verdict::Blocked,
+                "plugins.skills.unavailable",
+            ),
+            (
+                io::ErrorKind::TimedOut,
+                Verdict::Incomplete,
+                "plugins.skills.timeout",
+            ),
+            (
+                io::ErrorKind::InvalidData,
+                Verdict::Incomplete,
+                "plugins.skills.failed",
+            ),
+        ] {
+            let outcome = inspect_plugin_inventory_probe_with(
+                Ok(PluginProbe {
+                    stdout: br#"{"installed":[],"available":[]}"#.to_vec(),
+                    stderr: Vec::new(),
+                    exit_code: Some(0),
+                    duration: Duration::ZERO,
+                    timed_out: false,
+                }),
+                || Err(io::Error::new(kind, "fixture")),
+            );
+            assert_failure(outcome, verdict, code);
+        }
+
+        let timed_out = inspect_plugin_inventory_probe(Ok(PluginProbe {
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+            exit_code: Some(0),
+            duration: crate::PROBE_TIMEOUT,
+            timed_out: true,
+        }));
+        assert_failure(timed_out, Verdict::Incomplete, "probe.plugins.timeout");
+
+        let invalid = inspect_plugin_inventory_probe(Ok(PluginProbe {
+            stdout: b"{}".to_vec(),
+            stderr: Vec::new(),
+            exit_code: Some(0),
+            duration: Duration::ZERO,
+            timed_out: false,
+        }));
+        assert_failure(invalid, Verdict::Incomplete, "probe.plugins.invalid_json");
+
+        for exit_code in [Some(7), None] {
+            let failed = inspect_plugin_inventory_probe(Ok(PluginProbe {
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+                exit_code,
+                duration: Duration::ZERO,
+                timed_out: false,
+            }));
+            let expected = match exit_code {
+                Some(code) => format!("exit code {code}"),
+                None => "termination by signal".to_owned(),
+            };
+            let json = failed
+                .to_pretty_json()
+                .expect("failed plugin inventory should serialize");
+            assert_eq!(failed.verdict(), Verdict::Incomplete);
+            assert!(failed.is_failure());
+            assert!(json.contains(r#""code": "probe.plugins.failed""#));
+            assert!(json.contains(&expected));
+        }
+
+        for kind in [io::ErrorKind::NotFound, io::ErrorKind::PermissionDenied] {
+            let unavailable = inspect_plugin_inventory_probe(Err(io::Error::new(kind, "fixture")));
+            assert_failure(unavailable, Verdict::Blocked, "plugins.unavailable");
+        }
+
+        let spawn_failed = inspect_plugin_inventory_probe(Err(io::Error::other("fixture")));
+        assert_failure(
+            spawn_failed,
+            Verdict::Incomplete,
+            "probe.plugins.spawn_failed",
+        );
     }
 
     #[test]

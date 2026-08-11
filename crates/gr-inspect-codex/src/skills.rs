@@ -18,13 +18,13 @@ use memchr::memmem;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, value::RawValue};
 
+#[cfg(test)]
+use gr_skill_assessment::CleanupDisposition;
 use gr_skill_assessment::{
     Assessment, AssessmentInput, AssessmentSkillEvidence, AssessmentVerdict, CoverageStatus,
     ObservedUse, ObservedUseKey, RECENT_DAYS, SkillCleanupSummary, SkillEvidenceRef, SkillOrigin,
-    SkillUsageItem, SkillUsageSummary, UNOBSERVED_HISTORY_DAYS, assess,
+    SkillSignal, SkillUsageItem, SkillUsageSummary, UNOBSERVED_HISTORY_DAYS, assess,
 };
-#[cfg(test)]
-use gr_skill_assessment::{CleanupDisposition, SkillSignal};
 
 use crate::{
     PROBE_TIMEOUT, Verdict,
@@ -35,8 +35,8 @@ use crate::{
 
 const SECONDS_PER_DAY: i64 = 86_400;
 const HISTORY_SCAN_TIMEOUT: Duration = Duration::from_secs(15);
-const EVIDENCE_BASIS: &str = "exact_skill_manifest_path_in_retained_rollout_tool_calls";
-const COUNTING_BASIS: &str = "unique_thread_turns";
+pub(crate) const EVIDENCE_BASIS: &str = "exact_skill_manifest_path_in_retained_rollout_tool_calls";
+pub(crate) const COUNTING_BASIS: &str = "unique_thread_turns";
 const EVIDENCE_LIMITATIONS: [&str; 2] = [
     "renamed_or_previous_version_manifest_paths_can_undercount",
     "inlined_skill_context_without_a_manifest_path_is_not_observed",
@@ -123,6 +123,44 @@ struct SkillsInspectionReport {
     items_omitted: usize,
     items: Vec<SkillUsageItem>,
     findings: Vec<ReportFinding>,
+    #[serde(skip)]
+    plugin_cache_root: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AssessedPluginSkills {
+    pub(crate) plugin_cache_root: PathBuf,
+    pub(crate) observed_at: String,
+    pub(crate) recent_days: u64,
+    pub(crate) unobserved_history_days: u64,
+    pub(crate) coverage: AssessedSkillCoverage,
+    pub(crate) skills: Vec<AssessedPluginSkill>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AssessedSkillCoverage {
+    pub(crate) status: CoverageStatus,
+    pub(crate) history_from: Option<String>,
+    pub(crate) history_through: Option<String>,
+    pub(crate) rollouts_discovered: usize,
+    pub(crate) rollouts_scanned: usize,
+    pub(crate) rollouts_excluded_current: usize,
+    pub(crate) rollouts_unreadable: usize,
+    pub(crate) discovery_errors: usize,
+    pub(crate) records_unreadable: usize,
+    pub(crate) catalog_errors: usize,
+    pub(crate) truncated: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AssessedPluginSkill {
+    pub(crate) name: String,
+    pub(crate) manifest_path: PathBuf,
+    pub(crate) signal: SkillSignal,
+    pub(crate) last_observed_use_at: Option<String>,
+    pub(crate) last_observed_epoch: Option<i64>,
+    pub(crate) observed_uses_in_window: usize,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -137,6 +175,58 @@ impl SkillItemView {
         match self {
             Self::All => "all",
             Self::Actionable => "actionable",
+        }
+    }
+}
+
+impl SkillsInspectionReport {
+    fn into_assessed_plugin_skills(self) -> AssessedPluginSkills {
+        let SkillCoverage {
+            status,
+            history_from,
+            history_through,
+            rollouts_discovered,
+            rollouts_scanned,
+            rollouts_excluded_current,
+            rollouts_unreadable,
+            discovery_errors,
+            records_unreadable,
+            catalog_errors,
+            truncated,
+        } = self.coverage;
+        let skills = self
+            .items
+            .into_iter()
+            .filter(|item| item.origin == SkillOrigin::Plugin)
+            .map(|item| AssessedPluginSkill {
+                name: item.name,
+                manifest_path: PathBuf::from(item.manifest_path),
+                signal: item.signal,
+                last_observed_use_at: item.last_observed_use_at,
+                last_observed_epoch: item.last_observed_epoch,
+                observed_uses_in_window: item.observed_uses_in_window,
+            })
+            .collect();
+
+        AssessedPluginSkills {
+            plugin_cache_root: self.plugin_cache_root,
+            observed_at: self.observed_at,
+            recent_days: self.thresholds.recent_days,
+            unobserved_history_days: self.thresholds.unobserved_history_days,
+            coverage: AssessedSkillCoverage {
+                status,
+                history_from,
+                history_through,
+                rollouts_discovered,
+                rollouts_scanned,
+                rollouts_excluded_current,
+                rollouts_unreadable,
+                discovery_errors,
+                records_unreadable,
+                catalog_errors,
+                truncated,
+            },
+            skills,
         }
     }
 }
@@ -442,6 +532,10 @@ fn inspect_codex_skills_inner() -> io::Result<SkillsInspectionReport> {
         evidence,
         catalog_errors,
     ))
+}
+
+pub(crate) fn inspect_assessed_plugin_skills() -> io::Result<AssessedPluginSkills> {
+    inspect_codex_skills_inner().map(SkillsInspectionReport::into_assessed_plugin_skills)
 }
 
 fn nonempty_thread_id(value: Option<String>) -> Option<String> {
@@ -1136,6 +1230,7 @@ fn build_report(
         items_omitted: 0,
         items,
         findings,
+        plugin_cache_root: codex_home.join("plugins").join("cache"),
     }
 }
 
@@ -1370,6 +1465,37 @@ mod tests {
             skills: vec![skill(name, &format!("/skills/{name}/SKILL.md"))],
             errors: Vec::new(),
         }
+    }
+
+    #[test]
+    fn plugin_projection_excludes_non_plugin_origins() {
+        let codex_home = Path::new("/codex-home");
+        let report = build_report(
+            "2026-08-11T00:00:00Z".to_owned(),
+            0,
+            codex_home,
+            vec![
+                skill("personal", "/skills/personal/SKILL.md"),
+                skill(
+                    "plugin:skill",
+                    "/codex-home/plugins/cache/market/plugin/1/skills/example/SKILL.md",
+                ),
+            ],
+            UsageEvidence::default(),
+            0,
+        );
+
+        let projection = report.into_assessed_plugin_skills();
+
+        assert_eq!(
+            projection.plugin_cache_root,
+            codex_home.join("plugins/cache")
+        );
+        assert_eq!(projection.observed_at, "2026-08-11T00:00:00Z");
+        assert_eq!(projection.recent_days, RECENT_DAYS);
+        assert_eq!(projection.unobserved_history_days, UNOBSERVED_HISTORY_DAYS);
+        assert_eq!(projection.skills.len(), 1);
+        assert_eq!(projection.skills[0].name, "plugin:skill");
     }
 
     fn empty_rollout_scan(

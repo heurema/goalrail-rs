@@ -148,6 +148,39 @@ accept, false reject, confusing output, noticeable runtime cost, a baseline
 replacement, or pressure to turn a source metric into a semantic hard rule.
 Routine `NO_CHANGE` runs are not observations.
 
+The first real aggregate review covered the initial plugins inventory
+drilldown. The trial reported one added rustdoc-visible facade item, six changed
+Rust files, and no workspace-member or owned-edge movement. Review confirmed
+that the CLI still delegated to one library use case, the new function returned
+the existing opaque `InspectionOutcome`, and plugin probe and report types
+remained private. The public API and drift baselines were updated after that
+architecture review.
+
+Owner UX review then exposed a real false sense of completeness before commit:
+the plugins and skills lists were separate, so an agent still had to infer which
+skills belonged to a plugin. The milestone was reopened. The corrected design
+keeps normalized in-memory plugin, skill, link, and observation records, joins
+only by an exact native source or identity-derived cache root, and renders a
+plugin-centric nested view. A live smoke exposed that native `source.path`
+points to a source/staging tree while active skills can load from the versioned
+Codex cache; the cache identity root was added before accepting the milestone.
+Unlinked or ambiguous plugin skills and incomplete history are observable
+`REVIEW` findings. This correction remains part of the same first aggregate
+review for the three-review revisit gate; it does not count as a second review.
+
+The final independent review found four contract gaps before closure: unsafe
+native path components could widen a link root, duplicate plugin IDs could be
+collapsed into one match, the plugin aggregate reused an imprecise counting
+label, and skill signals omitted their assessment time and thresholds. The
+correction validates roots and identity components, fails closed on duplicate
+IDs, distinguishes per-skill counting from plugin aggregation, and includes the
+signal context. Positive, negative, and sabotage fixtures cover each case.
+The closure re-review also found that the partial-coverage finding attributed
+every incomplete result to unreadable rollout evidence even though catalog,
+discovery, record, truncation, or scan-count errors can produce the same state.
+The finding code and message now name only the proven partial evidence coverage
+and point the agent to the structured coverage counters for the cause.
+
 ## cargo-pup-import-policy
 
 - Owner: [decision 0007](decisions/0007-reject-cargo-pup-dependency-gate.md)

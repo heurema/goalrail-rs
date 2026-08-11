@@ -79,8 +79,9 @@ flowchart LR
   must not depend on assessment, cleanup, findings, verdicts, item views, or
   presentation. Assessment consumes normalized evidence but performs no
   process, environment, filesystem, clock, or rendering work. Presentation
-  consumes assessment output and does not acquire evidence. The skills use
-  case alone sequences these stages.
+  consumes assessment output and does not acquire evidence. One internal skill
+  evidence service sequences these stages; use cases may consume narrow
+  assessed projections without reimplementing acquisition or assessment.
 
 The accepted internal dependency direction is `catalog -> assessment model`,
 `history -> assessment model`, and `presentation -> assessment output`; the
@@ -92,16 +93,16 @@ and [decision 0008](docs/decisions/0008-enforce-skill-assessment-crate-boundary.
 
 ## Current conformance
 
-- AD-1: `gr` parses the command, invokes `inspect_codex`, renders the opaque
-  outcome, and maps its verdict to an exit code. It does not access probes.
-- AD-2: the summary and skills use cases inside `gr-inspect-codex` own probe
+- AD-1: `gr` parses each command, invokes one inspection use case, renders its
+  opaque outcome, and maps the verdict to an exit code. It does not access probes.
+- AD-2: the summary, skills, and plugins use cases inside `gr-inspect-codex` own probe
   sequencing, failure classification, outcome construction, and report
   formatting.
 - AD-3: Cargo metadata shows only the owned dependency edges
   `gr -> gr-inspect-codex` and
   `gr-inspect-codex -> gr-skill-assessment`.
-- AD-4: the library facade exports the summary and skills inspection use cases,
-  their opaque outcomes, and `Verdict`. Probe and report internals are
+- AD-4: the library facade exports the summary, skills, and plugins inspection
+  use cases, their opaque outcomes, and `Verdict`. Probe and report internals are
   `pub(crate)`, and `#![deny(unreachable_pub)]` rejects accidental unreachable
   public items.
 - AD-5: `gr-site` has no owned dependency edge and its checked-in HTML owns the
@@ -110,8 +111,10 @@ and [decision 0008](docs/decisions/0008-enforce-skill-assessment-crate-boundary.
   the internal `no_std` crate `gr-skill-assessment`. The orchestrator normalizes
   filesystem-backed origins and path values before assessment. Cargo enforces
   that assessment cannot depend back on acquisition or presentation. Catalog,
-  history, and presentation remain in `skills.rs`, so the complete five-stage
-  graph is not yet extracted.
+  history, plugin-skill projection, and skills presentation remain in
+  `skills.rs`, so the complete five-stage graph is not yet extracted. The
+  plugins use case consumes only the assessed plugin-skill projection and does
+  not read the catalog or retained rollouts itself.
 
 The compiler and pre-push Clippy check enforce visibility and Cargo dependency
 validity. Unit and CLI integration tests protect the observable inspection

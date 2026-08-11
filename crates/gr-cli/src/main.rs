@@ -3,6 +3,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 use gr_inspect_codex::{
     InspectionOutcome, SkillsInspectionOutcome, Verdict, inspect_codex as run_codex_inspection,
+    inspect_codex_plugins as run_codex_plugins_inspection,
     inspect_codex_skill_actions as run_codex_skill_actions_inspection,
     inspect_codex_skills as run_codex_skills_inspection,
 };
@@ -40,6 +41,10 @@ enum CodexSection {
         #[arg(long)]
         actionable: bool,
     },
+    Plugins {
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn main() -> ExitCode {
@@ -62,7 +67,21 @@ fn main() -> ExitCode {
                         }),
                 },
         } => inspect_codex_skills(outer_json || inner_json, actionable),
+        Command::Inspect {
+            target:
+                InspectTarget::Codex {
+                    json: outer_json,
+                    section: Some(CodexSection::Plugins { json: inner_json }),
+                },
+        } => inspect_codex_plugins(outer_json || inner_json),
     }
+}
+
+fn inspect_codex_plugins(json: bool) -> ExitCode {
+    let outcome = run_codex_plugins_inspection();
+    let verdict = render_outcome("gr inspect codex plugins", json, &outcome);
+
+    ExitCode::from(verdict.exit_code())
 }
 
 fn inspect_codex_skills(json: bool, actionable: bool) -> ExitCode {
@@ -78,7 +97,7 @@ fn inspect_codex_skills(json: bool, actionable: bool) -> ExitCode {
 
 fn inspect_codex(json: bool) -> ExitCode {
     let outcome = run_codex_inspection();
-    let verdict = render_outcome(json, &outcome);
+    let verdict = render_outcome("gr inspect codex", json, &outcome);
 
     ExitCode::from(verdict.exit_code())
 }
@@ -104,19 +123,19 @@ fn render_skills_outcome(json: bool, outcome: &SkillsInspectionOutcome) -> Verdi
     outcome.verdict()
 }
 
-fn render_outcome(json: bool, outcome: &InspectionOutcome) -> Verdict {
+fn render_outcome(command: &str, json: bool, outcome: &InspectionOutcome) -> Verdict {
     if json {
         match outcome.to_pretty_json() {
             Ok(output) => println!("{output}"),
             Err(error) => {
-                eprintln!("gr inspect codex: failed to serialize JSON report: {error}");
+                eprintln!("{command}: failed to serialize JSON report: {error}");
                 return Verdict::Incomplete;
             }
         }
     } else {
         let output = outcome.to_human();
         if outcome.is_failure() {
-            eprintln!("gr inspect codex: {output}");
+            eprintln!("{command}: {output}");
         } else {
             print!("{output}");
         }
@@ -198,6 +217,38 @@ mod tests {
                         actionable: true,
                     }),
                     ..
+                }
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_plugins_drilldown_with_inner_json_output() {
+        let cli = Cli::try_parse_from(["gr", "inspect", "codex", "plugins", "--json"])
+            .expect("command should parse");
+
+        assert!(matches!(
+            cli.command,
+            Command::Inspect {
+                target: InspectTarget::Codex {
+                    json: false,
+                    section: Some(CodexSection::Plugins { json: true }),
+                }
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_plugins_drilldown_with_outer_json_output() {
+        let cli = Cli::try_parse_from(["gr", "inspect", "codex", "--json", "plugins"])
+            .expect("command should parse");
+
+        assert!(matches!(
+            cli.command,
+            Command::Inspect {
+                target: InspectTarget::Codex {
+                    json: true,
+                    section: Some(CodexSection::Plugins { json: false }),
                 }
             }
         ));

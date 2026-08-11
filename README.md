@@ -160,8 +160,9 @@ mise run ci
 ```
 
 `mise run ci` checks formatting, Clippy, the narrow compiler-enforced skill
-assessment boundary, workspace tests, coverage, and local verification-receipt
-behavior. Other architecture invariants still require explicit review; the
+assessment boundary, the Goalrail plugin and release packaging, workspace
+tests, coverage, and local verification-receipt behavior. Other architecture
+invariants still require explicit review; the
 retired custom checker must not be treated as a passing gate.
 `mise run architecture:public-api` is a separate trial that compares only the
 documented rustdoc-visible facade slice and does not prove the architecture
@@ -178,20 +179,49 @@ prints a fast `verify:ci-state <base> <head>` recovery command only when the
 missing edge changes no Rust source. Any unverified `.rs` change prints the
 goal-scoped `verify:outgoing-rust` command to run before retrying the push.
 
-## Local release preparation
+## Release preparation
 
-The repository can prepare and verify a macOS arm64 release bundle locally
-without publishing it:
+The repository packages exactly three release targets:
+
+- macOS arm64 (`aarch64-apple-darwin`);
+- Linux x86_64 (`x86_64-unknown-linux-gnu`), built and smoked on Ubuntu 22.04;
+- Windows x86_64 (`x86_64-pc-windows-msvc`).
+
+The current public `v0.3.1` install contract remains macOS arm64 through
+Homebrew. Linux and Windows are source-preview release tooling until a higher
+version has passed the native GitHub runner workflow and its assets have been
+published and checked. Windows artifacts are not code-signed and may trigger
+SmartScreen. No Linux or Windows package-manager lifecycle is promised yet.
+
+One local host can build and verify only its matching native target. For
+example, on Apple silicon:
 
 ```bash
 mise run release:test
-mise run release:prepare -- 0.3.1
-mise run release:check -- 0.3.1
+mise run release:prepare -- 0.3.1 aarch64-apple-darwin
+mise run release:check -- 0.3.1 aarch64-apple-darwin
 ```
 
-The generated bundle under `dist/v0.3.1/` contains the binary and MIT license
-archive, its SHA-256, a release manifest, and a rendered Homebrew formula.
-`dist/` is ignored and is never a source of truth.
+Each target produces a binary-and-license archive, its SHA-256, and target
+manifest under `dist/v<version>/`. `dist/` is ignored and is never a source of
+truth. The packaging test exercises all three archive contracts with fixtures
+and the current host with a real native binary.
+
+The manual `build release bundle` GitHub workflow is the native platform gate.
+It accepts an existing annotated `vX.Y.Z` tag, resolves it once to a full commit
+SHA, checks out that SHA in every job, runs exact-tree checks, and builds each
+target on its native pinned runner. Every binary must report the exact version
+and complete `gr inspect codex --json` against a controlled Codex fixture. The
+final job recomputes checksums and emits one 14-day Actions artifact named
+`goalrail-vX.Y.Z-release-bundle` with all archives, checksum files, aggregate
+`release.json`, the three target manifests required for offline revalidation,
+and the macOS-only Homebrew formula.
+
+The workflow has read-only repository permissions. It does not create a
+GitHub Release, mutate the Homebrew tap, or replace existing assets. Dispatch,
+GitHub Release publication, and Homebrew tap update remain separate
+approval-gated actions. Checksums detect artifact corruption; they are not a
+signature or proof against repository or runner compromise.
 
 Before any public release, run the read-only source gate:
 
@@ -199,9 +229,37 @@ Before any public release, run the read-only source gate:
 mise run release:preflight -- 0.3.1
 ```
 
-It fails closed unless the version matches, the checkout is clean and tagged,
-the host is macOS arm64, and distribution terms have been selected. Passing the
-gate does not publish, tag, install, or update anything.
+It fails closed unless the version matches, the checkout is clean, HEAD has the
+exact annotated tag, the multi-platform tooling is present, and distribution
+terms have been selected. The result includes the source commit and Cargo.lock
+SHA-256. Passing the gate does not dispatch the workflow, publish, install, or
+update anything.
+
+After separate approval, the native build is dispatched with the exact tag:
+
+```bash
+gh workflow run release.yml -f tag=vX.Y.Z
+```
+
+After it completes, download the named bundle, run
+`release:bundle-check` against the recorded full source commit, and inspect the
+workflow receipt. The checker requires `file`, `jq`, and Ruby; it verifies each
+binary format and architecture, exact target-to-rustc-host identity, all
+manifests, and the Homebrew Formula syntax. Re-resolve the annotated remote tag
+immediately before publication:
+
+```bash
+gh run download <run-id> \
+  --name goalrail-vX.Y.Z-release-bundle \
+  --dir dist/vX.Y.Z
+mise run release:bundle-check -- X.Y.Z <full-source-commit>
+scripts/check-remote-release-tag.sh vX.Y.Z <full-source-commit> origin
+```
+
+Publishing those verified files with `gh release create` is a later,
+separately approved operation. A failed workflow publishes nothing. An already
+existing release or any asset collision is `BLOCKED`; immutable tags and assets
+are never replaced. Recovery uses a higher patch version.
 
 ## Design documents
 
@@ -237,6 +295,9 @@ gate does not publish, tag, install, or update anything.
 - [Co-located Codex plugin trial](docs/decisions/0011-co-locate-goalrail-codex-plugin.md)
   keeps the skills-only plugin, agent routing, and repo marketplace beside the
   CLI while preserving a separate binary distribution path.
+- [Native multi-platform release bundle](docs/decisions/0012-build-native-multi-platform-release-bundles.md)
+  adds Windows and Linux assets without coupling build authority to GitHub
+  Release or Homebrew publication.
 - [Model behavior evaluation proposal](docs/ideas/model-behavior-evaluation.md)
   captures a possible provider-neutral comparison mechanism. It is not part of
   the runtime or public CLI yet.

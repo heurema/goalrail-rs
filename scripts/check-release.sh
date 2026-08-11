@@ -3,7 +3,7 @@
 set -eu
 
 usage() {
-  echo "Usage: $0 <version> [output-root]" >&2
+  echo "Usage: $0 <version> <target> [output-root]" >&2
   exit 64
 }
 
@@ -26,26 +26,31 @@ checksum() {
   fi
 }
 
-[ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage
+[ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage
 
 version=$1
-output_root=${2:-dist}
+target=$2
+output_root=${3:-dist}
 
 if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
   fail "version must use stable SemVer form: $version"
 fi
 
-target=aarch64-apple-darwin
+case "$target" in
+  aarch64-apple-darwin|x86_64-unknown-linux-gnu) binary_name=gr ;;
+  x86_64-pc-windows-msvc) binary_name=gr.exe ;;
+  *) fail "unsupported release target: $target" ;;
+esac
+
 tag="v$version"
 artifact="goalrail-$tag-$target.tar.gz"
 release_dir="$output_root/$tag"
 archive="$release_dir/$artifact"
 checksum_file="$archive.sha256"
-formula="$release_dir/goalrail.rb"
-manifest="$release_dir/release.json"
+manifest="$release_dir/goalrail-$tag-$target.json"
 download_url="https://github.com/heurema/goalrail-rs/releases/download/$tag/$artifact"
 
-for file in "$archive" "$checksum_file" "$formula" "$manifest"; do
+for file in "$archive" "$checksum_file" "$manifest"; do
   [ -f "$file" ] || fail "required artifact is missing: $file"
 done
 
@@ -58,7 +63,7 @@ actual_checksum=$(checksum "$archive")
 
 archive_entries=$(tar -tzf "$archive")
 [ "$archive_entries" = "LICENSE
-gr" ] || fail "archive must contain only LICENSE and gr"
+$binary_name" ] || fail "archive must contain only LICENSE and $binary_name"
 
 extract_dir=$(mktemp -d "${TMPDIR:-/tmp}/goalrail-check.XXXXXX")
 cleanup() {
@@ -67,56 +72,60 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 tar -C "$extract_dir" -xzf "$archive"
-[ -x "$extract_dir/gr" ] || fail "archived gr is not executable"
+[ -s "$extract_dir/$binary_name" ] || fail "archived binary is empty"
 cmp -s LICENSE "$extract_dir/LICENSE" || fail "archived license does not match"
-[ "$("$extract_dir/gr" --version)" = "gr $version" ] ||
-  fail "archived gr reports an unexpected version"
-
-if command -v lipo >/dev/null 2>&1; then
-  lipo "$extract_dir/gr" -verify_arch arm64 >/dev/null 2>&1 ||
-    fail "archived gr is not arm64"
+if [ "$target" != x86_64-pc-windows-msvc ]; then
+  [ -x "$extract_dir/$binary_name" ] || fail "archived binary is not executable"
 fi
-
-command -v ruby >/dev/null 2>&1 || fail "ruby is unavailable"
-ruby -c "$formula" >/dev/null || fail "Homebrew formula has invalid Ruby syntax"
-
-if grep -q '@@' "$formula"; then
-  fail "Homebrew formula contains unresolved placeholders"
-fi
-
-grep -Fq "url \"$download_url\"" "$formula" || fail "formula URL does not match"
-grep -Fq "sha256 \"$actual_checksum\"" "$formula" || fail "formula checksum does not match"
-if grep -Eq '^[[:space:]]+version([[:space:]]|\()' "$formula"; then
-  fail "formula should derive its version from the release URL"
-fi
-grep -Fq 'depends_on :macos' "$formula" || fail "formula lacks the macOS guard"
-grep -Fq 'depends_on arch: :arm64' "$formula" || fail "formula lacks the arm64 guard"
 
 command -v jq >/dev/null 2>&1 || fail "jq is unavailable"
+command -v file >/dev/null 2>&1 || fail "file is unavailable"
 archive_size=$(wc -c <"$archive" | tr -d ' ')
+binary_description=$(LC_ALL=C file -b "$extract_dir/$binary_name")
+case "$target:$binary_description" in
+  aarch64-apple-darwin:*'Mach-O 64-bit executable arm64'*) ;;
+  x86_64-unknown-linux-gnu:*'ELF 64-bit'*'x86-64'*) ;;
+  x86_64-pc-windows-msvc:*'PE32+ executable'*'x86-64'*) ;;
+  *) fail "binary format does not match $target: $binary_description" ;;
+esac
+
 jq -e \
   --arg version "$version" \
   --arg tag "$tag" \
   --arg target "$target" \
+  --arg binary "$binary_name" \
   --arg artifact "$artifact" \
   --arg sha256 "$actual_checksum" \
   --arg download_url "$download_url" \
   --argjson artifact_size "$archive_size" \
-  '. == {
-    schemaVersion: 1,
-    product: "goalrail",
-    version: $version,
-    tag: $tag,
-    target: $target,
-    binary: "gr",
-    binaryVersion: ("gr " + $version),
-    license: "MIT",
-    artifact: $artifact,
-    artifactSizeBytes: $artifact_size,
-    sha256: $sha256,
-    checksumArtifact: ($artifact + ".sha256"),
-    downloadUrl: $download_url
-  }' "$manifest" >/dev/null || fail "release manifest does not match artifacts"
+  '.schemaVersion == 1
+  and .product == "goalrail"
+  and .version == $version
+  and .tag == $tag
+  and .target == $target
+  and .binary == $binary
+  and .binaryVersion == ("gr " + $version)
+  and .license == "MIT"
+  and .artifact == $artifact
+  and .artifactSizeBytes == $artifact_size
+  and .sha256 == $sha256
+  and .checksumArtifact == ($artifact + ".sha256")
+  and .downloadUrl == $download_url
+  and (.build.sourceCommit | test("^[0-9a-f]{40}$"))
+  and (.build.cargoLockSha256 | test("^[0-9a-f]{64}$"))
+  and (.build.rustcRelease | test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))
+  and .build.rustcHost == $target
+  and (.build.runnerImage | type == "string" and length > 0)
+  and (.build.runnerImageVersion | type == "string" and length > 0)
+  and (keys | sort) == ([
+    "artifact", "artifactSizeBytes", "binary", "binaryVersion", "build",
+    "checksumArtifact", "downloadUrl", "license", "product",
+    "schemaVersion", "sha256", "tag", "target", "version"
+  ] | sort)
+  and (.build | keys | sort) == ([
+    "cargoLockSha256", "runnerImage", "runnerImageVersion", "rustcHost",
+    "rustcRelease", "sourceCommit"
+  ] | sort)' "$manifest" >/dev/null || fail "release manifest does not match artifact"
 
-printf '{"schemaVersion":1,"verdict":"READY","version":"%s","artifact":"%s","sha256":"%s"}\n' \
-  "$version" "$artifact" "$actual_checksum"
+printf '{"schemaVersion":1,"verdict":"READY","version":"%s","target":"%s","artifact":"%s","sha256":"%s"}\n' \
+  "$version" "$target" "$artifact" "$actual_checksum"

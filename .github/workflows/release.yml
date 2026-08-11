@@ -1,0 +1,216 @@
+name: build release bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable release tag (vX.Y.Z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: goalrail-release-build-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: resolve immutable release source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.source.outputs.version }}
+      source_commit: ${{ steps.source.outputs.source_commit }}
+      rust_toolchain: ${{ steps.source.outputs.rust_toolchain }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.tag }}
+      - id: source
+        name: Resolve tag, version, and toolchain
+        shell: bash
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if ! grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' <<<"${REQUESTED_TAG}"; then
+            echo "tag must use vX.Y.Z" >&2
+            exit 1
+          fi
+          if [[ "$(git cat-file -t "refs/tags/${REQUESTED_TAG}")" != tag ]]; then
+            echo "release tag must be annotated" >&2
+            exit 1
+          fi
+
+          source_commit="$(git rev-parse "refs/tags/${REQUESTED_TAG}^{commit}")"
+          [[ "$(git rev-parse HEAD)" == "${source_commit}" ]]
+          ./scripts/check-remote-release-tag.sh \
+            "${REQUESTED_TAG}" "${source_commit}" origin
+
+          version="${REQUESTED_TAG#v}"
+          package_id="$(cargo pkgid -p gr)"
+          [[ "${package_id##*@}" == "${version}" ]]
+
+          rust_toolchain="$(awk -F'"' '/^rust = / { print $2 }' mise.toml)"
+          [[ -n "${rust_toolchain}" ]]
+
+          echo "version=${version}" >>"${GITHUB_OUTPUT}"
+          echo "source_commit=${source_commit}" >>"${GITHUB_OUTPUT}"
+          echo "rust_toolchain=${rust_toolchain}" >>"${GITHUB_OUTPUT}"
+
+  verify:
+    name: verify exact release tree
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.resolve.outputs.source_commit }}
+      - name: Verify tag still resolves to the selected commit
+        shell: bash
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+          SOURCE_COMMIT: ${{ needs.resolve.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse "refs/tags/${REQUESTED_TAG}^{commit}")" == "${SOURCE_COMMIT}" ]]
+      - name: Install the pinned Rust toolchain
+        shell: bash
+        env:
+          RUST_TOOLCHAIN: ${{ needs.resolve.outputs.rust_toolchain }}
+        run: |
+          set -euo pipefail
+          rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal \
+            --component clippy --component rustfmt
+          rustup default "${RUST_TOOLCHAIN}"
+      - name: Run release-tree checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace --locked
+          ./scripts/check-assessment-boundary.sh
+          ./scripts/test-assessment-boundary.sh
+          ./scripts/test-goalrail-plugin.sh
+          ./scripts/test-release-tooling.sh
+          shellcheck \
+            scripts/prepare-release.sh \
+            scripts/package-release.sh \
+            scripts/check-release.sh \
+            scripts/assemble-release.sh \
+            scripts/check-release-bundle.sh \
+            scripts/check-remote-release-tag.sh \
+            scripts/smoke-release-binary.sh \
+            scripts/release-preflight.sh \
+            scripts/test-release-tooling.sh
+
+  build:
+    name: build ${{ matrix.target }}
+    needs: [resolve, verify]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.resolve.outputs.source_commit }}
+      - name: Verify tag still resolves to the selected commit
+        shell: bash
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+          SOURCE_COMMIT: ${{ needs.resolve.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse "refs/tags/${REQUESTED_TAG}^{commit}")" == "${SOURCE_COMMIT}" ]]
+      - name: Install the pinned Rust toolchain
+        shell: bash
+        env:
+          RUST_TOOLCHAIN: ${{ needs.resolve.outputs.rust_toolchain }}
+        run: |
+          set -euo pipefail
+          rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal
+          rustup default "${RUST_TOOLCHAIN}"
+      - name: Build, run, package, and verify the native binary
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          ./scripts/prepare-release.sh "${VERSION}" "${TARGET}" dist
+          ./scripts/check-release.sh "${VERSION}" "${TARGET}" dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: goalrail-${{ inputs.tag }}-${{ matrix.target }}
+          path: dist/${{ inputs.tag }}/goalrail-${{ inputs.tag }}-${{ matrix.target }}.*
+          if-no-files-found: error
+          retention-days: 14
+
+  assemble:
+    name: assemble verified release bundle
+    needs: [resolve, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.resolve.outputs.source_commit }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: goalrail-${{ inputs.tag }}-*
+          path: dist/${{ inputs.tag }}
+          merge-multiple: true
+      - name: Verify tag and assemble the bundle
+        shell: bash
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.resolve.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse "refs/tags/${REQUESTED_TAG}^{commit}")" == "${SOURCE_COMMIT}" ]]
+          ./scripts/check-remote-release-tag.sh \
+            "${REQUESTED_TAG}" "${SOURCE_COMMIT}" origin
+          command -v ruby >/dev/null
+          ./scripts/assemble-release.sh "${VERSION}" "${SOURCE_COMMIT}" dist
+          ./scripts/check-release-bundle.sh "${VERSION}" "${SOURCE_COMMIT}" dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: goalrail-${{ inputs.tag }}-release-bundle
+          path: |
+            dist/${{ inputs.tag }}/*.tar.gz
+            dist/${{ inputs.tag }}/*.sha256
+            dist/${{ inputs.tag }}/goalrail-${{ inputs.tag }}-*.json
+            dist/${{ inputs.tag }}/goalrail.rb
+            dist/${{ inputs.tag }}/release.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Write the release receipt
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ needs.resolve.outputs.source_commit }}
+        run: |
+          echo "Release bundle READY_FOR_PUBLICATION from ${SOURCE_COMMIT}." >>"${GITHUB_STEP_SUMMARY}"
+          echo "This workflow did not create or modify a GitHub Release or Homebrew tap." >>"${GITHUB_STEP_SUMMARY}"

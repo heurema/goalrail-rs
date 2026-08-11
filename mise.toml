@@ -36,6 +36,7 @@ run = [
   { task = "architecture:assessment" },
   { task = "test:assessment-boundary" },
   { task = "test:goalrail-plugin" },
+  { task = "release:test" },
   { task = "coverage" },
   { task = "test:verification-receipts" },
 ]
@@ -115,19 +116,27 @@ description = "Test the Goalrail site motion module on the host"
 run = "cargo test -p gr-site"
 
 [tasks."release:prepare"]
-description = "Build local macOS arm64 release artifacts"
+description = "Build and package one native release target"
 run = "./scripts/prepare-release.sh"
 
 [tasks."release:check"]
-description = "Verify local release artifacts and Homebrew formula"
+description = "Verify one packaged release target"
 run = "./scripts/check-release.sh"
 
+[tasks."release:assemble"]
+description = "Assemble and verify the three-target release bundle"
+run = "./scripts/assemble-release.sh"
+
+[tasks."release:bundle-check"]
+description = "Verify an assembled three-target release bundle"
+run = "./scripts/check-release-bundle.sh"
+
 [tasks."release:preflight"]
-description = "Check public release source prerequisites without publishing"
+description = "Check tagged release source prerequisites without publishing"
 run = "./scripts/release-preflight.sh"
 
 [tasks."release:test"]
-description = "Exercise local release packaging in a temporary directory"
+description = "Exercise native and three-target release packaging locally"
 run = "./scripts/test-release-tooling.sh"
 
 [tasks."mutants:full"]

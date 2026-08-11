@@ -7,6 +7,11 @@
   for a user's coding agent while preserving explicit user authority and a
   verifiable, fail-closed result
 
+Decision 0012 adds source-preview Linux and Windows release assets without
+changing this document's current public Homebrew lifecycle. A new lifecycle
+owner for those platforms requires a separate decision after the first native
+runner and public-asset canary.
+
 ## Context
 
 The primary lifecycle actor is not a person typing package-manager commands.

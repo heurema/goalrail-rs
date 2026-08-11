@@ -26,7 +26,9 @@ checksum() {
   fi
 }
 
-[ "$#" -ge 3 ] && [ "$#" -le 4 ] || usage
+if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
+  usage
+fi
 
 version=$1
 target=$2

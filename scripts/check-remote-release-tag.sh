@@ -12,7 +12,9 @@ fail() {
   exit 1
 }
 
-[ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
+  usage
+fi
 
 tag=$1
 source_commit=$2

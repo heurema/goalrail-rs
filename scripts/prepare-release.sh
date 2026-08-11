@@ -12,7 +12,9 @@ fail() {
   exit 1
 }
 
-[ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
+  usage
+fi
 
 version=$1
 target=$2

@@ -28,6 +28,10 @@ cd "$repo_root"
 command -v jq >/dev/null 2>&1 || fail "jq is unavailable"
 command -v file >/dev/null 2>&1 || fail "file is unavailable"
 command -v ruby >/dev/null 2>&1 || fail "ruby is unavailable"
+[ "$(git check-attr text -- LICENSE)" = "LICENSE: text: set" ] ||
+  fail "LICENSE must be tracked as text"
+[ "$(git check-attr eol -- LICENSE)" = "LICENSE: eol: lf" ] ||
+  fail "LICENSE must use LF in every checkout"
 
 workflow=.github/workflows/release.yml
 grep -F 'workflow_dispatch:' "$workflow" >/dev/null ||

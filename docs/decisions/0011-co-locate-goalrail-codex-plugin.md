@@ -65,22 +65,22 @@ configuration changes, each with its own approval and readback.
 
 Use a moving `main` ref for the marketplace catalog so it can advertise new
 versions without a remove/re-add gap. The plugin entry itself uses remote
-`git-subdir` and points to an immutable plugin-specific tag from the first
-remote canary, starting with `plugin-v0.1.0`. This keeps the code, marketplace,
-and release tag in one repository while allowing plugin releases to move more
-frequently than native CLI releases.
+`git-subdir` and points to the immutable shared Goalrail release tag, starting
+with `v0.3.0`. The CLI crates and plugin use one version and one tag. A behavior
+change in either component advances the whole Goalrail release; offline
+validation rejects a mismatched workspace version, plugin manifest, or tag.
 
 Before `plugin add`, the acting agent must read the refreshed marketplace entry
-and present its exact URL, subdirectory, `plugin-v<version>` tag, resolved tag
+and present its exact URL, subdirectory, `v<version>` tag, resolved tag
 commit, and version for approval. A moving ref, mismatched version, unexpected
 repository/path, unresolved tag, or changed evidence returns `BLOCKED`. The
 installed plugin state must still be verified rather than assumed.
 Plugin instructions may call only released CLI capabilities compatible with
 the installed binary's `--help` surface. During the remote trial, references may
 describe a source-preview command only when they label it unreleased and require
-capability detection before invocation. The plugin has its own package version;
-changing agent behavior requires a plugin version bump even when the CLI does
-not change.
+capability detection before invocation. The shared version is a release-train
+identity, not proof that a capability exists in an installed binary; runtime
+capability detection remains required.
 
 Do not bundle the native `gr` binary in this trial. The documented Homebrew
 package remains the single binary distribution and update path. The skill may
@@ -114,10 +114,10 @@ must not run automatically during package installation.
 - A bundled executable would reduce the visible install steps but duplicate
   platform packaging, provenance, and update ownership before those contracts
   are proven.
-- Matching Cargo version text is not sufficient compatibility evidence. The
-  tagged `v0.2.0` binary predates the plugins drilldown even though the current
-  source crate still reports `0.2.0`; the skill therefore checks the installed
-  help surface rather than trusting the version string alone.
+- Matching version text is not sufficient compatibility evidence. The existing
+  `v0.2.0` release predates the plugin and remains immutable. Unified versioning
+  starts with `v0.3.0`, while the skill still checks the installed help surface
+  rather than trusting the version string alone.
 
 ## Rollback and revisit
 

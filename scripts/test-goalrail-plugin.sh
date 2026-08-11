@@ -18,7 +18,23 @@ command -v jq >/dev/null 2>&1 || {
   exit 1
 }
 
-jq -e '
+command -v cargo >/dev/null 2>&1 || {
+  echo "goalrail plugin test requires cargo" >&2
+  exit 1
+}
+
+plugin_version=$(jq -er '.version' "$manifest")
+release_ref=v$plugin_version
+workspace_versions=$(cargo metadata --locked --offline --no-deps --format-version 1 \
+  --manifest-path "$repo_root/Cargo.toml" |
+  jq -r '.packages[].version' | sort -u)
+
+test "$workspace_versions" = "$plugin_version" || {
+  echo "Goalrail workspace and plugin versions must match: workspace=$workspace_versions plugin=$plugin_version" >&2
+  exit 1
+}
+
+jq -e --arg ref "$release_ref" '
   .name == "goalrail"
   and (.plugins | length) == 1
   and .plugins[0].name == "goalrail"
@@ -26,16 +42,17 @@ jq -e '
     source: "git-subdir",
     url: "https://github.com/heurema/goalrail-rs.git",
     path: "./plugins/goalrail",
-    ref: "plugin-v0.1.0"
+    ref: $ref
   }
   and .plugins[0].policy.installation == "AVAILABLE"
   and .plugins[0].policy.authentication == "ON_INSTALL"
   and .plugins[0].policy.products == ["CODEX"]
 ' "$marketplace" >/dev/null
 
-jq -e '
+jq -e --arg version "$plugin_version" '
   .name == "goalrail"
-  and .version == "0.1.0"
+  and .version == $version
+  and .author.name == "Heurema"
   and .skills == "./skills/"
   and .interface.displayName == "Goalrail"
   and .interface.category == "Developer Tools"
@@ -79,7 +96,7 @@ grep -F 'changed version with an enabled `goalrail@goalrail`: `UPDATED`' "$plugi
 grep -F 'atomically. The supported update path' "$plugin_lifecycle" >/dev/null
 grep -F 'Homebrew installation never registers or installs this Codex plugin' "$plugin_lifecycle" >/dev/null
 grep -F 'codex plugin marketplace add "$remote_source" --ref "$remote_ref" --json' "$remote_smoke" >/dev/null
-grep -F 'payload_ref=plugin-v$expected_version' "$remote_smoke" >/dev/null
+grep -F 'payload_ref=v$expected_version' "$remote_smoke" >/dev/null
 grep -F 'remote marketplace advertises an unexpected Goalrail payload' "$remote_smoke" >/dev/null
 grep -F 'git ls-remote --exit-code "$payload_url"' "$remote_smoke" >/dev/null
 grep -F '"skills/list"' "$remote_smoke" >/dev/null
@@ -88,6 +105,6 @@ grep -F 'skills/list did not expose the installed Goalrail skill' "$remote_smoke
 grep -F 'if the user says only "Goalrail", ask which target they mean' "$skill" >/dev/null
 grep -F 'If `gr` is absent, read' "$skill" >/dev/null
 grep -F 'gr inspect codex --help' "$skill" >/dev/null
-grep -F 'not part of the tagged `v0.2.0` binary' "$index" >/dev/null
+grep -F 'first shared CLI/plugin release is' "$index" >/dev/null
 
 echo "GOALRAIL_PLUGIN_TEST_OK marketplace=goalrail plugin=goalrail skill=goalrail"

@@ -20,7 +20,7 @@ does not register the marketplace or install the plugin in Codex.
 Activation has two separate state-changing steps. Resolve the Git repository
 and marketplace channel, then obtain approval for only the next step before
 running it. The supported catalog channel is `main`; plugin payloads are pinned
-separately by the marketplace entry to immutable `plugin-v<version>` tags.
+by the marketplace entry to the immutable shared Goalrail `v<version>` tag.
 
 1. Register the Git repository as the `goalrail` marketplace:
 
@@ -65,7 +65,7 @@ advertise exactly:
 
 - URL `https://github.com/heurema/goalrail-rs.git`;
 - path `./plugins/goalrail`;
-- ref `plugin-v<version>`, matching the version to be installed.
+- ref `v<version>`, matching both the plugin and native CLI release version.
 
 Resolve that exact tag with `git ls-remote` and present the URL, path, tag,
 resolved commit SHA, previous installed version, and advertised version to the

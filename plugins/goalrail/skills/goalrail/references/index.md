@@ -2,10 +2,10 @@
 
 Use the CLI's own `--help` output for exact syntax and this index for intent
 routing and evidence semantics. The public Goalrail CLI `0.2.0` supports the
-summary and skills workflows below. The plugins drilldown exists in the current
-source tree but is not part of the tagged `v0.2.0` binary; do not invoke it
-unless the installed binary advertises `plugins` in
-`gr inspect codex --help`.
+summary and skills workflows below. The first shared CLI/plugin release is
+planned as `v0.3.0`, including the plugins drilldown. Until that release exists,
+do not invoke the drilldown unless the installed binary advertises `plugins`
+in `gr inspect codex --help`.
 
 ## Inspect a Codex environment
 

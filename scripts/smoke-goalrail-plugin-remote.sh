@@ -14,11 +14,11 @@ expected_version=$2
 remote_source=heurema/goalrail-rs
 payload_url=https://github.com/heurema/goalrail-rs.git
 payload_path=./plugins/goalrail
-payload_ref=plugin-v$expected_version
+payload_ref=v$expected_version
 
 [ -n "$remote_ref" ] || fail "git ref must not be empty"
 printf '%s\n' "$expected_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' ||
-  fail "plugin version must be semantic x.y.z"
+  fail "release version must be semantic x.y.z"
 
 command -v codex >/dev/null 2>&1 || fail "codex is unavailable"
 command -v git >/dev/null 2>&1 || fail "git is unavailable"
@@ -134,8 +134,14 @@ wait_for_rpc_id() {
   fail "Codex app-server timed out before RPC response $rpc_id"
 }
 
-printf '%s\n' \
-  '{"id":1,"method":"initialize","params":{"clientInfo":{"name":"goalrail-plugin-smoke","version":"0.1.0"},"capabilities":{"experimentalApi":true}}}' >&3
+jq -cn --arg version "$expected_version" '{
+  id: 1,
+  method: "initialize",
+  params: {
+    clientInfo: {name: "goalrail-plugin-smoke", version: $version},
+    capabilities: {experimentalApi: true}
+  }
+}' >&3
 wait_for_rpc_id 1
 
 jq -cn --arg cwd "$PWD" '{

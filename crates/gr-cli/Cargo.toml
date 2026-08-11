@@ -1,12 +1,12 @@
 [package]
 name = "gr"
-version = "0.2.0"
+version.workspace = true
 edition = "2024"
 license = "MIT"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-gr-inspect-codex = { version = "0.2.0", path = "../gr-inspect-codex" }
+gr-inspect-codex = { version = "0.3.0", path = "../gr-inspect-codex" }
 
 [dev-dependencies]
 serde_json = "1"

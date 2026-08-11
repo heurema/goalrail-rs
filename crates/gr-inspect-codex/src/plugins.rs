@@ -49,6 +49,8 @@ pub(crate) struct Plugin {
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 pub(crate) struct PluginSource {
+    #[serde(rename = "source")]
+    pub(crate) source_type: Option<String>,
     pub(crate) path: Option<PathBuf>,
 }
 
@@ -267,10 +269,16 @@ pub(crate) fn build_plugin_inspection_report(
                 invalid_plugin_ids.insert(plugin.plugin_id.clone());
             }
             if let Some(source) = plugin.source {
-                match source.path {
+                let PluginSource { source_type, path } = source;
+                match path {
                     Some(path) if valid_absolute_root(&path) => {
                         link_roots.push(comparable_path(&path));
                     }
+                    // Git sources expose a repository-relative subdirectory. It is
+                    // valid metadata, but it must never become a filesystem root.
+                    Some(path)
+                        if source_type.as_deref() == Some("git-subdir")
+                            && valid_relative_source_metadata_path(&path) => {}
                     _ => {
                         invalid_plugin_ids.insert(plugin.plugin_id.clone());
                     }
@@ -499,6 +507,23 @@ fn valid_absolute_root(path: &Path) -> bool {
     normal_components > 0
 }
 
+fn valid_relative_source_metadata_path(path: &Path) -> bool {
+    if path.is_absolute() {
+        return false;
+    }
+    let mut normal_components = 0;
+    for component in path.components() {
+        match component {
+            Component::Normal(_) => normal_components += 1,
+            Component::Prefix(_)
+            | Component::RootDir
+            | Component::CurDir
+            | Component::ParentDir => return false,
+        }
+    }
+    normal_components > 0
+}
+
 fn valid_identity_component(value: &str) -> bool {
     let mut components = Path::new(value).components();
     matches!(components.next(), Some(Component::Normal(part)) if !part.is_empty())
@@ -696,6 +721,44 @@ mod tests {
                 .and_then(|source| source.path.as_deref()),
             Some(Path::new("/plugins/github/0.1.8"))
         );
+        assert_eq!(
+            report.installed[0]
+                .source
+                .as_ref()
+                .and_then(|source| source.source_type.as_deref()),
+            Some("local")
+        );
+    }
+
+    #[test]
+    fn parses_git_subdir_source_path_as_relative_metadata() {
+        let json = r#"{
+            "installed": [{
+                "pluginId": "goalrail@goalrail",
+                "name": "goalrail",
+                "marketplaceName": "goalrail",
+                "version": "0.3.1",
+                "installed": true,
+                "enabled": true,
+                "source": {
+                    "source": "git-subdir",
+                    "url": "https://github.com/heurema/goalrail-rs.git",
+                    "path": "plugins/goalrail",
+                    "ref": "v0.3.1"
+                }
+            }],
+            "available": []
+        }"#;
+
+        let report = parse_plugins(json).expect("git-subdir plugin report should parse");
+
+        assert_eq!(
+            report.installed[0]
+                .source
+                .as_ref()
+                .and_then(|source| source.path.as_deref()),
+            Some(Path::new("plugins/goalrail"))
+        );
     }
 
     #[test]
@@ -859,6 +922,15 @@ mod tests {
             assert!(!valid_absolute_root(Path::new(invalid)), "{invalid}");
         }
         assert!(valid_absolute_root(Path::new("/safe/root")));
+        for invalid in ["", ".", "..", "/absolute", "plugins/../victim"] {
+            assert!(
+                !valid_relative_source_metadata_path(Path::new(invalid)),
+                "{invalid}"
+            );
+        }
+        assert!(valid_relative_source_metadata_path(Path::new(
+            "plugins/goalrail"
+        )));
 
         let mut unsafe_marketplace = plugin("marketplace@market", "1", true, None, None);
         unsafe_marketplace.marketplace_name = "..".to_owned();
@@ -866,7 +938,22 @@ mod tests {
         unsafe_name.name = "..".to_owned();
         let unsafe_version = plugin("version@market", "/victim", true, None, None);
         let mut missing_source_path = plugin("missing-source@market", "1", true, None, None);
-        missing_source_path.source = Some(PluginSource { path: None });
+        missing_source_path.source = Some(PluginSource {
+            source_type: Some("local".to_owned()),
+            path: None,
+        });
+        let mut relative_local = plugin(
+            "relative-local@market",
+            "1",
+            true,
+            None,
+            Some("plugins/local"),
+        );
+        relative_local
+            .source
+            .as_mut()
+            .expect("source should exist")
+            .source_type = Some("local".to_owned());
         let report = build_plugin_inspection_report(
             PluginReport {
                 installed: vec![
@@ -875,6 +962,7 @@ mod tests {
                     unsafe_name,
                     unsafe_version,
                     missing_source_path,
+                    relative_local,
                 ],
                 available: Vec::new(),
             },
@@ -894,6 +982,7 @@ mod tests {
                 "marketplace@market",
                 "missing-source@market",
                 "name@market",
+                "relative-local@market",
                 "source@market",
                 "version@market"
             ]
@@ -916,6 +1005,34 @@ mod tests {
             invalid_cache_report.skill_evidence.invalid_plugin_ids,
             ["cache@market"]
         );
+    }
+
+    #[test]
+    fn accepts_repository_relative_source_metadata_without_using_it_as_a_root() {
+        let report = build_plugin_inspection_report(
+            PluginReport {
+                installed: vec![plugin(
+                    "goalrail@market",
+                    "0.3.1",
+                    true,
+                    None,
+                    Some("plugins/goalrail"),
+                )],
+                available: Vec::new(),
+            },
+            complete_evidence(vec![skill(
+                "goalrail",
+                "/plugins/cache/market/goalrail/0.3.1/skills/goalrail/SKILL.md",
+                SkillSignal::Recent,
+                Some(("2026-08-10T12:00:00Z", 1_786_363_200)),
+                1,
+            )]),
+        );
+
+        assert_eq!(report.verdict, Verdict::BaselineOk);
+        assert!(report.skill_evidence.invalid_plugin_ids.is_empty());
+        assert_eq!(report.skill_evidence.link_coverage.linked, 1);
+        assert_eq!(report.items[0].skills[0].name, "goalrail");
     }
 
     #[test]
@@ -1001,6 +1118,14 @@ mod tests {
             enabled,
             auth_policy: auth_policy.map(str::to_owned),
             source: source_root.map(|path| PluginSource {
+                source_type: Some(
+                    if Path::new(path).is_absolute() {
+                        "local"
+                    } else {
+                        "git-subdir"
+                    }
+                    .to_owned(),
+                ),
                 path: Some(PathBuf::from(path)),
             }),
         }

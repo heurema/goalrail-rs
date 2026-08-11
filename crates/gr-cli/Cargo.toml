@@ -6,7 +6,7 @@ license = "MIT"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-gr-inspect-codex = { version = "0.3.3", path = "../gr-inspect-codex" }
+gr-inspect-codex = { version = "0.3.4", path = "../gr-inspect-codex" }
 
 [dev-dependencies]
 serde_json = "1"

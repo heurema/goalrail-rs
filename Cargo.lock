@@ -106,7 +106,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "gr"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "clap",
  "gr-inspect-codex",
@@ -115,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "gr-inspect-codex"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "gr-skill-assessment",
  "memchr",
@@ -126,11 +126,11 @@ dependencies = [
 
 [[package]]
 name = "gr-site"
-version = "0.3.3"
+version = "0.3.4"
 
 [[package]]
 name = "gr-skill-assessment"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "serde",
 ]

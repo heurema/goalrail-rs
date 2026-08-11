@@ -1,0 +1,22 @@
+{
+  "name": "goalrail",
+  "plugins": [
+    {
+      "name": "goalrail",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/heurema/goalrail-rs.git",
+        "path": "./plugins/goalrail",
+        "ref": "plugin-v0.1.0"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL",
+        "products": [
+          "CODEX"
+        ]
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

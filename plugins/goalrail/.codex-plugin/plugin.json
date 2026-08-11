@@ -1,0 +1,34 @@
+{
+  "name": "goalrail",
+  "version": "0.1.0",
+  "description": "Route Codex environment inspection and cleanup intents through the evidence-backed Goalrail CLI.",
+  "homepage": "https://goalrail.dev/",
+  "repository": "https://github.com/heurema/goalrail-rs",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "inspection",
+    "skills",
+    "plugins",
+    "evidence"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Goalrail",
+    "shortDescription": "Evidence-backed Codex inspection",
+    "longDescription": "Translate operator intent into bounded Goalrail CLI inspections, interpret structured evidence, and preserve explicit authority for installation or cleanup actions.",
+    "developerName": "Heurema",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read"
+    ],
+    "websiteURL": "https://goalrail.dev/",
+    "defaultPrompt": [
+      "Inspect my Codex setup",
+      "Show which skills need cleanup review",
+      "Explain which active skills belong to each plugin"
+    ],
+    "brandColor": "#E8836B",
+    "screenshots": []
+  }
+}

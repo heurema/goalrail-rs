@@ -93,6 +93,51 @@ MCP, apps, and other non-skill capabilities. The command does not recommend
 cleanup, expose the available marketplace catalog, or enable, disable, install,
 or remove anything. It writes no cache, durable memory, or database.
 
+## Codex plugin trial
+
+The repository packages a Codex-only, skills-only Goalrail plugin under
+`plugins/goalrail` and exposes it through the repo marketplace at
+`.agents/plugins/marketplace.json`. Its current checked-in state is
+packaging-only: the marketplace is not registered and the plugin is not
+installed merely because these files exist. Once explicitly activated, the
+plugin is the agent-facing intent router; the separately installed `gr` binary
+remains the evidence engine. The trial does not bundle, install, update, or
+remove the binary automatically.
+
+The trial channel is installed from the remote Git marketplace on `main` using
+two separate Codex configuration changes:
+
+```bash
+codex plugin marketplace add heurema/goalrail-rs --ref main --json
+codex plugin add goalrail@goalrail --json
+```
+
+Each command requires its own explicit approval and JSON readback; marketplace
+registration does not authorize plugin installation. These commands are not
+run by `mise run test:goalrail-plugin` or `mise run ci`.
+
+The marketplace entry uses the remote `git-subdir` source and pins
+`plugins/goalrail` to the immutable plugin tag `plugin-v0.1.0`. The marketplace
+catalog can keep refreshing from `main` without making the installed plugin
+follow the branch automatically. Every agent-behavior change bumps the plugin
+version and advances the entry to the matching `plugin-v<version>` tag.
+
+Run `mise run test:goalrail-plugin` for offline package validation. After the
+exact ref has been pushed, run the real Git-backed smoke test with:
+
+```bash
+mise run smoke:goalrail-plugin-remote -- main 0.1.0
+```
+
+The smoke test uses an isolated temporary `CODEX_HOME`; it does not register or
+install the plugin in the operator's normal Codex profile. It verifies the Git
+marketplace source, exact remote payload URL/path/tag and resolved tag commit,
+installed plugin identity and version, and that Codex `skills/list` exposes the
+`goalrail` skill from the installed plugin cache.
+The public `v0.2.0` binary supports the summary and skills flows but predates
+the plugins drilldown. The trial skill checks the installed CLI help surface
+and labels that workflow as source-preview until the next release.
+
 ## Design boundaries
 
 Goalrail is currently a modular monolith:
@@ -185,6 +230,12 @@ gate does not publish, tag, install, or update anything.
 - [Identity-based architecture drift trial](docs/decisions/0009-trial-identity-based-architecture-drift.md)
   records the advisory aggregate snapshot, its agent-facing JSON contract, and
   why it is not an architecture-conformance gate.
+- [In-memory plugin-skill evidence decision](docs/decisions/0010-link-plugin-skill-evidence-in-memory.md)
+  records the normalized relation used by the plugins drilldown and why SQLite
+  remains deferred.
+- [Co-located Codex plugin trial](docs/decisions/0011-co-locate-goalrail-codex-plugin.md)
+  keeps the skills-only plugin, agent routing, and repo marketplace beside the
+  CLI while preserving a separate binary distribution path.
 - [Model behavior evaluation proposal](docs/ideas/model-behavior-evaluation.md)
   captures a possible provider-neutral comparison mechanism. It is not part of
   the runtime or public CLI yet.

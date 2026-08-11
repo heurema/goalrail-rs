@@ -35,6 +35,7 @@ run = [
   { task = "lint" },
   { task = "architecture:assessment" },
   { task = "test:assessment-boundary" },
+  { task = "test:goalrail-plugin" },
   { task = "coverage" },
   { task = "test:verification-receipts" },
 ]
@@ -96,6 +97,14 @@ run = "./scripts/check-assessment-boundary.sh"
 [tasks."test:assessment-boundary"]
 description = "Sabotage-test the skill assessment boundary gate"
 run = "./scripts/test-assessment-boundary.sh"
+
+[tasks."test:goalrail-plugin"]
+description = "Validate the repo marketplace and Goalrail Codex plugin package"
+run = "./scripts/test-goalrail-plugin.sh"
+
+[tasks."smoke:goalrail-plugin-remote"]
+description = "Install the Goalrail plugin from a remote Git ref in an isolated Codex profile"
+run = "./scripts/smoke-goalrail-plugin-remote.sh"
 
 [tasks."site:build"]
 description = "Build the static Goalrail site and its WebAssembly motion module"

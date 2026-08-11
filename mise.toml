@@ -77,6 +77,18 @@ run = "./scripts/check-public-api.sh"
 description = "Test the public API trial fail-closed behavior"
 run = "./scripts/test-public-api.sh"
 
+[tasks."architecture:drift"]
+description = "Report identity-based architecture drift from the accepted baseline"
+run = "./scripts/architecture-drift.sh check"
+
+[tasks."architecture:drift:capture"]
+description = "Print the current architecture drift snapshot without accepting it"
+run = "./scripts/architecture-drift.sh capture"
+
+[tasks."test:architecture-drift"]
+description = "Sabotage-test the advisory architecture drift trial"
+run = "./scripts/test-architecture-drift.sh"
+
 [tasks."architecture:assessment"]
 description = "Verify the compiler-enforced skill assessment boundary"
 run = "./scripts/check-assessment-boundary.sh"

@@ -139,6 +139,15 @@ can prove and pass positive and negative sabotage cases. Any gate claiming the
 complete AD-6 dependency graph or assessment-purity constraints must prove
 those exact claims before entering CI.
 
+`[TRIAL: identity-based-architecture-drift]` The manually invoked
+`architecture:drift` task compares exact Cargo workspace members and owned
+edges, the current pinned rustdoc-visible facade, and per-file Rust source line
+counts and content fingerprints with an accepted snapshot. It reports
+`NO_CHANGE` or advisory `REVIEW`;
+neither verdict proves architecture conformance. The contract and its limits
+are recorded in
+[decision 0009](docs/decisions/0009-trial-identity-based-architecture-drift.md).
+
 `cargo-pup` 0.1.8 was evaluated and rejected as a dependency-direction gate:
 it rejected a forbidden `use` declaration but accepted the same dependency
 through a qualified path. The evidence and revisit condition are recorded in

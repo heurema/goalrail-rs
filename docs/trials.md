@@ -113,6 +113,41 @@ modified before closure: setup now installs `jq` 1.8.2 and the exact
 of the mutable `nightly` alias. The exact toolchain produced the same 24-line
 facade snapshot.
 
+The rustdoc generator is now shared with the identity-based architecture drift
+trial. The public API snapshot comparison and its sabotage tests remain
+unchanged; the second consumer does not widen this trial's claim.
+
+## identity-based-architecture-drift
+
+- Owner: [decision 0009](decisions/0009-trial-identity-based-architecture-drift.md)
+  and [`ARCHITECTURE-SPINE.md`](../ARCHITECTURE-SPINE.md#enforcement-status)
+- Added: `2026-08-11`
+- Revisit: after three real aggregate architecture reviews or by `2026-09-11`,
+  whichever comes first.
+- Current decision: `TRIAL`.
+
+The initial accepted snapshot records four workspace packages, two owned
+dependency edges, 24 rustdoc-visible facade items, 18 Rust files, and 7,688
+source lines. Its largest-file context preserves the current concentration:
+`skills.rs` has 2,781 lines, followed by `use_case.rs` with 968, `agents.rs`
+with 780, `report.rs` with 713, and `assessment.rs` with 627. These are review
+signals, not violations or size limits.
+
+The initial sabotage harness detects package reassignment, a same-size source
+rewrite, exact source-line movement, an added owned edge, an added public API
+item, and an added Rust file. A registry dependency with a colliding workspace
+package name is not treated as an owned edge. The harness rejects malformed or
+noncanonical baselines and hidden input overrides. A nested workspace package
+owns its files instead of colliding with its parent package scan. The harness
+also fails closed when Cargo metadata points at a missing workspace package.
+Normal CI does not run this task, and
+`REVIEW` exits successfully so automation must inspect the structured verdict.
+
+Record only a drift result that changes an architecture decision, a false
+accept, false reject, confusing output, noticeable runtime cost, a baseline
+replacement, or pressure to turn a source metric into a semantic hard rule.
+Routine `NO_CHANGE` runs are not observations.
+
 ## cargo-pup-import-policy
 
 - Owner: [decision 0007](decisions/0007-reject-cargo-pup-dependency-gate.md)

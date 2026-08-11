@@ -93,7 +93,11 @@ behavior. Other architecture invariants still require explicit review; the
 retired custom checker must not be treated as a passing gate.
 `mise run architecture:public-api` is a separate trial that compares only the
 documented rustdoc-visible facade slice and does not prove the architecture
-spine. A successful
+spine. `mise run architecture:drift` is a separate advisory aggregate review:
+it reports exact workspace-edge, facade-item, Rust-file content, and per-file
+line-count movement as structured `NO_CHANGE` or `REVIEW` JSON. It does not parse internal
+Rust dependencies or prove architecture conformance, and it never updates its
+accepted baseline automatically. A successful
 `verify:rust-milestone` run records local verification evidence under `.git`.
 The tracked native pre-push hook checks every pushed ref for exact-tree CI
 evidence and a full-tree verification receipt chain; it does not run CI or
@@ -152,6 +156,9 @@ gate does not publish, tag, install, or update anything.
 - [Compiler-enforced skill assessment boundary](docs/decisions/0008-enforce-skill-assessment-crate-boundary.md)
   records the narrow internal crate extraction used instead of a source-level
   import policy.
+- [Identity-based architecture drift trial](docs/decisions/0009-trial-identity-based-architecture-drift.md)
+  records the advisory aggregate snapshot, its agent-facing JSON contract, and
+  why it is not an architecture-conformance gate.
 - [Model behavior evaluation proposal](docs/ideas/model-behavior-evaluation.md)
   captures a possible provider-neutral comparison mechanism. It is not part of
   the runtime or public CLI yet.

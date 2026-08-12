@@ -41,10 +41,12 @@ fail-closed diff requirement as permanent project policy.
 - Owner: [decision 0003](decisions/0003-use-local-verification-receipts-for-push.md)
 - Added: `2026-08-10`
 - Revisit: after three real pushes or by `2026-09-10`, whichever comes first.
-- Current decision: `TRIAL`.
+- Current decision: `KEEP`.
+- Closed: `2026-08-12`.
 
-Record only a failed or confusing receipt check, unnecessary verification,
-false accept, false reject, material wait, or a change to the trial contract.
+During the trial, observations were limited to a failed or confusing receipt
+check, unnecessary verification, false accept, false reject, material wait, or
+a change to the trial contract.
 
 The first canary reproduced a false accept: `prek` validated only one range in
 a two-ref push, so an unverified Rust branch escaped the hook. Independent
@@ -54,6 +56,14 @@ exact full-tree receipts, and CI-only edges only when no Rust source changed.
 The final review then rejected both a mutation-input allow-list and public
 receipt-only commands. The shipped canary hashes complete Git trees and exposes
 only commands that run their checks before writing evidence.
+
+The count trigger crossed after more than three public pushes. The owner kept
+the policy because it validates existing exact-tree evidence, fails fast, and
+does not grant push authority. Public push events do not prove that every local
+push used the hook, and elapsed verification or review cost was not quantified.
+Reopen after a false accept, false reject, confusing recovery path, or material
+cost complaint. Authority expansion or evidence creation without verification
+requires a new decision.
 
 ## architecture-fitness-v0
 

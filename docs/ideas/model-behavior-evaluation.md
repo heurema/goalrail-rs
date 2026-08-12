@@ -1,9 +1,14 @@
 # Model Behavior Evaluation Comparator
 
-- Status: proposal
+- Status: deferred; no named consumer or real receipt-backed comparison case
 - Runtime implementation: none
 - Decision owner: Goalrail maintainer
-- Revisit before: adding a third owned crate or a new `gr eval` command
+- Deferred: 2026-08-12
+- Last reviewed: 2026-08-12
+- Revisit only when: both a named existing consumer and at least one
+  reproducible comparison case backed by real receipts exist
+- Archive backstop: if the revisit conditions remain unmet on 2027-02-12,
+  archive by default
 
 ## Context
 
@@ -156,7 +161,7 @@ holdout. Do not repeatedly tune against the same retired holdout.
 
 If this proposal is adopted:
 
-1. update `ARCHITECTURE.md` before introducing the third crate;
+1. update `ARCHITECTURE.md` before introducing the `gr-eval` crate;
 2. add receipt and comparison types in a new `gr-eval` library;
 3. add a thin `gr eval compare` CLI adapter;
 4. verify comparison semantics using synthetic receipts only;
@@ -182,7 +187,26 @@ The synthetic cases must prove at least:
 - **Build the runner first:** would create provider, credential, and execution
   boundaries before comparison semantics are stable.
 
-## Open decisions
+## Deferral decision
+
+The original crate-count trigger crossed when the workspace reached four owned
+crates. That count was an architecture-growth signal, not evidence that a
+comparator has a user. No named existing consumer, real receipt corpus, or
+reproducible comparison case currently justifies a new crate or CLI command.
+
+The owner therefore selected `DEFER`: do not implement this proposal. Reopen
+only when both conditions are true:
+
+1. a named existing Goalrail consumer needs the comparison; and
+2. at least one reproducible comparison case is backed by real receipts.
+
+If both conditions remain unmet on 2027-02-12, archive the proposal by default
+instead of extending the deadline silently.
+
+Independent review receipt: requested and actual model `claude-fable-5`, status
+`success`, no fallback, exposed cost `$0.269385`.
+
+## Deferred decisions if reopened
 
 - exact receipt schema and versioning policy;
 - how a suite declares non-inferiority margins;

@@ -1,7 +1,8 @@
 # Decision 0012: Build native multi-platform release bundles
 
-- Status: accepted; native candidate passed, run-readback amendment pending repeat canary
+- Status: accepted; repeat native candidate and public `v0.3.6` assets verified
 - Date: 2026-08-11
+- Last verified: 2026-08-12
 - Owner: project owner
 
 ## Decision question
@@ -162,6 +163,15 @@ definition that executed. Goalrail therefore verifies selected-run identity via
 the REST run endpoint and sabotage-tests this exact divergence. Because this
 amendment changes the candidate source before tagging, the same `0.3.6` version
 must receive a new candidate run before tag creation.
+
+That repeat verification is complete. Workflow run
+[`31572166805`](https://github.com/heurema/goalrail-rs/actions/runs/31572166805)
+passed resolve, all three native builds, and aggregate assembly for exact source
+`83d3783c6d3d0ced6bced4c93972170c6abfdae1`. The public
+[`v0.3.6`](https://github.com/heurema/goalrail-rs/releases/tag/v0.3.6) release
+then exposed the exact 11-asset contract. This closes the repeat-canary and
+public-asset verification items. It does not establish Homebrew promotion,
+artifact signing, or a managed Linux or Windows package lifecycle.
 
 Critique receipt: requested and actual model `claude-fable-5`, status `success`,
 no fallback, exposed cost `$0.405929`.

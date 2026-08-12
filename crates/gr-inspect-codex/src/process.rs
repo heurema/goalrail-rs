@@ -80,10 +80,11 @@ fn output_drain_deadline(
     timeout: Duration,
     drain_started_at: Instant,
 ) -> Instant {
+    let grace_deadline = drain_started_at + OUTPUT_DRAIN_GRACE;
     if timed_out {
-        drain_started_at + OUTPUT_DRAIN_GRACE
+        grace_deadline
     } else {
-        started_at + timeout
+        (started_at + timeout).max(grace_deadline)
     }
 }
 
@@ -138,16 +139,21 @@ mod tests {
     #[test]
     fn selects_the_deadline_for_normal_and_timed_out_processes() {
         let started_at = Instant::now();
-        let drain_started_at = started_at + Duration::from_secs(2);
         let timeout = Duration::from_secs(1);
+        let early_drain = started_at + Duration::from_millis(10);
+        let late_drain = started_at + timeout;
 
         assert_eq!(
-            output_drain_deadline(started_at, false, timeout, drain_started_at),
+            output_drain_deadline(started_at, false, timeout, early_drain),
             started_at + timeout
         );
         assert_eq!(
-            output_drain_deadline(started_at, true, timeout, drain_started_at),
-            drain_started_at + OUTPUT_DRAIN_GRACE
+            output_drain_deadline(started_at, false, timeout, late_drain),
+            late_drain + OUTPUT_DRAIN_GRACE
+        );
+        assert_eq!(
+            output_drain_deadline(started_at, true, timeout, late_drain),
+            late_drain + OUTPUT_DRAIN_GRACE
         );
     }
 

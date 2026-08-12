@@ -212,8 +212,9 @@ tap_status=$(git -C "$tap_root" status --porcelain) ||
   blocked "TAP_STATUS_FAILED" "tap worktree state could not be read"
 
 if cmp -s "$formula" "$remote_formula"; then
-  [ "$local_head" = "$remote_head" ] && [ -z "$tap_status" ] ||
+  if [ "$local_head" != "$remote_head" ] || [ -n "$tap_status" ]; then
     blocked "LOCAL_STATE_CONFLICT" "remote formula is current but the local tap is not clean at remote main"
+  fi
   jq -cn --arg version "$version" --arg remoteHead "$remote_head" '{
     schemaVersion: 1,
     verdict: "NO_CHANGE",
@@ -327,9 +328,10 @@ git -C "$tap_root" show "FETCH_HEAD:$formula_path" >"$post_formula" 2>/dev/null 
   blocked "POSTCHECK_FORMULA_MISSING" "published tap formula blob is unavailable"
 cmp -s "$post_formula" "$formula" ||
   blocked "POSTCHECK_FORMULA_MISMATCH" "published tap formula bytes differ from the release"
-[ "$(git -C "$tap_root" rev-parse HEAD)" = "$prepared_head" ] &&
-  [ -z "$(git -C "$tap_root" status --porcelain)" ] ||
+if [ "$(git -C "$tap_root" rev-parse HEAD)" != "$prepared_head" ] ||
+  [ -n "$(git -C "$tap_root" status --porcelain)" ]; then
   blocked "POSTCHECK_LOCAL_STATE" "local tap is not clean at the published commit"
+fi
 
 jq -cn \
   --arg version "$version" \

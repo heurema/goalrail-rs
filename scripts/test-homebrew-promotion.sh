@@ -18,6 +18,17 @@ checksum() {
   fi
 }
 
+check_no_ambiguous_bracket_guard() {
+  awk '
+    pending_and {
+      if ($0 ~ /^[[:space:]]*\[/ && $0 ~ /\|\|[[:space:]]*$/) exit 1
+      pending_and = 0
+    }
+    /^[[:space:]]*\[/ && /&&.*\|\|[[:space:]]*$/ { exit 1 }
+    /^[[:space:]]*\[/ && /&&[[:space:]]*$/ { pending_and = 1 }
+  ' "$@"
+}
+
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH='' cd -- "$script_dir/.." && pwd)
 subject="$repo_root/scripts/promote-homebrew.sh"
@@ -25,6 +36,8 @@ subject="$repo_root/scripts/promote-homebrew.sh"
 command -v jq >/dev/null 2>&1 || fail "jq is unavailable"
 [ -x "$subject" ] || fail "Homebrew promotion script is not executable"
 sh -n "$subject"
+check_no_ambiguous_bracket_guard "$subject" "$0" ||
+  fail "Homebrew promotion scripts contain an ambiguous A && B || fail guard"
 if grep -Eq '(^|[[:space:]])brew([[:space:]]|$)' "$subject"; then
   fail "promotion script must not interpret or mutate Homebrew"
 fi
@@ -34,6 +47,25 @@ cleanup() {
   rm -rf "$fixture_root"
 }
 trap cleanup EXIT HUP INT TERM
+
+explicit_guard="$fixture_root/explicit-guard.sh"
+cat >"$explicit_guard" <<'EOF'
+if [ "$left" != "$right" ] || [ -n "$status" ]; then
+  exit 1
+fi
+EOF
+check_no_ambiguous_bracket_guard "$explicit_guard" ||
+  fail "guard check rejected an explicit if"
+
+ambiguous_guard="$fixture_root/ambiguous-guard.sh"
+# shellcheck disable=SC2016
+printf '%s\n' \
+  '[ "$left" = "$right" ] &&' \
+  '  [ -z "$status" ] ||' \
+  '  exit 1' >"$ambiguous_guard"
+if check_no_ambiguous_bracket_guard "$ambiguous_guard"; then
+  fail "guard check accepted an ambiguous A && B || fail chain"
+fi
 
 source_root="$fixture_root/source"
 mkdir -p "$source_root/scripts" "$source_root/dist/v1.2.3"
@@ -279,9 +311,10 @@ fi
 printf '%s\n' "$denied" | jq -e '
   .verdict == "CONFLICT" and .finding.code == "WRITE_PERMISSION_MISSING"
 ' >/dev/null || fail "permission failure was not classified"
-[ "$(git -C "$permission_checkout" rev-parse HEAD)" = "$permission_head" ] &&
-  [ -z "$(git -C "$permission_checkout" status --porcelain)" ] ||
+if [ "$(git -C "$permission_checkout" rev-parse HEAD)" != "$permission_head" ] ||
+  [ -n "$(git -C "$permission_checkout" status --porcelain)" ]; then
   fail "permission failure mutated the tap"
+fi
 
 transport_remote="$fixture_root/transport-tap.git"
 transport_seed="$fixture_root/transport-seed"
@@ -299,9 +332,10 @@ fi
 printf '%s\n' "$transport_failed" | jq -e '
   .verdict == "CONFLICT" and .finding.code == "PUSH_PREFLIGHT_FAILED"
 ' >/dev/null || fail "dry-run transport failure was not classified"
-[ "$(git -C "$transport_checkout" rev-parse HEAD)" = "$transport_head" ] &&
-  [ -z "$(git -C "$transport_checkout" status --porcelain)" ] ||
+if [ "$(git -C "$transport_checkout" rev-parse HEAD)" != "$transport_head" ] ||
+  [ -n "$(git -C "$transport_checkout" status --porcelain)" ]; then
   fail "dry-run transport failure mutated the tap"
+fi
 
 race_remote="$fixture_root/race-tap.git"
 race_seed="$fixture_root/race-seed"

@@ -1,7 +1,8 @@
 # Use Local Verification Receipts for Push
 
-- **Status:** trial
+- **Status:** accepted; bounded trial closed as `KEEP`
 - **Date:** 2026-08-10
+- **Last verified:** 2026-08-12
 - **Decision owner:** t3chn
 - **Owner intent:** keep the mutation-tested milestone gate while preventing
   long local checks from holding an idle SSH push connection open
@@ -29,7 +30,7 @@ may be pushed together.
 
 ## Decision
 
-Trial option 3.
+Select option 3. The bounded trial was closed as `KEEP` on 2026-08-12.
 
 `mise run verify:rust-milestone` remains the normal closure command. After CI
 and goal-scoped mutation testing pass, it writes a local receipt under the
@@ -93,8 +94,23 @@ the native hook, installer, receipt scripts, and tasks. Existing local receipts
 then become unused and may be deleted from the common Git directory under
 `goalrail/`.
 
-## Revisit Condition
+## Trial closure and reopen conditions
 
-After three real pushes or by 2026-09-10, choose `KEEP`, `MODIFY`, or `REMOVE`
-using elapsed verification time, stale-receipt failures, false accepts, false
-rejects, and whether agents followed the printed recovery command.
+The count trigger crossed: public GitHub events showed more than three real
+pushes after adoption. The initial multi-ref false accept was found and fixed
+during the trial; no later material receipt or recovery-path failure was
+recorded.
+
+The evidence has limits. Public push events cannot prove that every local push
+used the installed hook, and the trial did not quantify verification time or
+review cost. Absence of a recorded failure is not proof of zero failures.
+
+The owner selected `KEEP` because the hook validates existing exact-tree
+evidence, fails fast, and does not grant push authority. Reopen this decision
+after a false accept, false reject, confusing recovery path, or material cost
+complaint. Any design that reruns slow checks during transport, creates
+evidence without verification, or grants push authority requires a new owner
+decision.
+
+Independent review receipt: requested and actual model `claude-fable-5`, status
+`success`, no fallback, exposed cost `$0.269385`.

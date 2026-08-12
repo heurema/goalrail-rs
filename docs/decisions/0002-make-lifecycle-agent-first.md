@@ -1,16 +1,18 @@
 # Make Goalrail Lifecycle Agent-First
 
-- **Status:** adopted; local packaging is implemented, publication is pending
+- **Status:** adopted; macOS Homebrew lifecycle and multi-platform release
+  assets are published
 - **Date:** 2026-08-09
+- **Last verified:** 2026-08-12 against public `v0.3.6`
 - **Decision owner:** t3chn
 - **Owner intent:** make Goalrail installation, update, and removal convenient
   for a user's coding agent while preserving explicit user authority and a
   verifiable, fail-closed result
 
-Decision 0012 adds source-preview Linux and Windows release assets without
-changing this document's current public Homebrew lifecycle. A new lifecycle
-owner for those platforms requires a separate decision after the first native
-runner and public-asset canary.
+Decision 0012 now has verified public Linux and Windows release assets without
+changing this document's public Homebrew lifecycle. Goalrail still provides no
+managed package lifecycle for those platforms. Adding one requires a separate
+owner decision.
 
 ## Context
 
@@ -200,10 +202,18 @@ The first user without a usable Homebrew path receives an honest `BLOCKED`
 result. That case is evidence for revisiting the distribution mechanism, not
 permission to add an automatic fallback.
 
+## Operational verification
+
+The second-platform and public-asset revisit completed on 2026-08-12. Native
+macOS arm64, Linux x86_64, and Windows x86_64 assets were verified and published
+for `v0.3.6`. Keep Homebrew as the only managed lifecycle. Public artifacts do
+not expand lifecycle or publication authority and do not imply Linux or Windows
+package ownership.
+
 ## Revisit Condition
 
-Revisit when a real supported user cannot use Homebrew, a second operating
-system or architecture is admitted, Goalrail begins owning persistent user
-state, Homebrew cannot provide the required ownership or verification
-evidence, or a stable agent-native package manager satisfies the same contract
-with less custom policy.
+Revisit when a real supported user cannot use Homebrew, a managed lifecycle is
+requested for another operating system or architecture, Goalrail begins owning
+persistent user state, Homebrew cannot provide the required ownership or
+verification evidence, or a stable agent-native package manager satisfies the
+same contract with less custom policy.

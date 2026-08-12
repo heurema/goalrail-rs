@@ -197,14 +197,18 @@ are unsigned, and Linux and Windows have no package-manager lifecycle yet.
 
 ## Design documents
 
+- [Public site product brief](PRODUCT.md) defines the landing-page audience,
+  promise, and design principles.
+- [Public site design brief](DESIGN.md) defines the visual, interaction, motion,
+  and accessibility contract for `gr-site`.
 - [Native-first decision](docs/decisions/0001-keep-goalrail-native-first.md)
   records why Goalrail begins with a read-only adapter over supported Codex
   capabilities.
 - [Agent-first lifecycle decision](docs/decisions/0002-make-lifecycle-agent-first.md)
   defines the bounded Homebrew protocol for agent-operated installation,
   update, and removal.
-- [Local verification receipt trial](docs/decisions/0003-use-local-verification-receipts-for-push.md)
-  separates slow local verification from the pre-push network operation.
+- [Local verification receipt policy](docs/decisions/0003-use-local-verification-receipts-for-push.md)
+  records the completed trial, retained fail-fast policy, and reopen conditions.
 - [Retired architecture fitness trial](docs/decisions/0004-trial-native-architecture-fitness.md)
   records why the repository-owned Ruby checker was removed and what a future
   replacement must prove.
@@ -233,8 +237,8 @@ are unsigned, and Linux and Windows have no package-manager lifecycle yet.
   adds Windows and Linux assets without coupling build authority to GitHub
   Release or Homebrew publication.
 - [Model behavior evaluation proposal](docs/ideas/model-behavior-evaluation.md)
-  captures a possible provider-neutral comparison mechanism. It is not part of
-  the runtime or public CLI yet.
+  defers a possible provider-neutral comparison mechanism until a named
+  consumer and a reproducible receipt-backed comparison case both exist.
 - [Historical v0 candidate](docs/history/inspect-codex-v0-candidate.md) preserves
   the original pre-implementation contract and explicitly lists where the
   shipped behavior differs.

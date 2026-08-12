@@ -36,6 +36,7 @@ run = [
   { task = "architecture:assessment" },
   { task = "test:assessment-boundary" },
   { task = "test:goalrail-plugin" },
+  { task = "test:homebrew-update-state" },
   { task = "release:test" },
   { task = "coverage" },
   { task = "test:verification-receipts" },
@@ -103,6 +104,10 @@ run = "./scripts/test-assessment-boundary.sh"
 description = "Validate the repo marketplace and Goalrail Codex plugin package"
 run = "./scripts/test-goalrail-plugin.sh"
 
+[tasks."test:homebrew-update-state"]
+description = "Sabotage-test the bundled Homebrew update-state normalizer"
+run = "./scripts/test-homebrew-update-state.sh"
+
 [tasks."smoke:goalrail-plugin-remote"]
 description = "Install the Goalrail plugin from a remote Git ref in an isolated Codex profile"
 run = "./scripts/smoke-goalrail-plugin-remote.sh"
@@ -147,9 +152,16 @@ run = "./scripts/check-github-run.sh"
 description = "Verify a selected run against GitHub Release state and asset digests"
 run = "./scripts/check-github-release.sh"
 
+[tasks."release:homebrew-promote"]
+description = "Promote one verified published release formula to the Homebrew tap"
+run = "./scripts/promote-homebrew.sh"
+
 [tasks."release:test"]
-description = "Exercise native and three-target release packaging locally"
-run = "./scripts/test-release-tooling.sh"
+description = "Exercise native packaging and the fail-closed Homebrew promotion stage"
+run = [
+  "./scripts/test-release-tooling.sh",
+  "./scripts/test-homebrew-promotion.sh",
+]
 
 [tasks."mutants:full"]
 description = "Run the full mutation suite for deep CI"

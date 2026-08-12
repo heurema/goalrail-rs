@@ -246,6 +246,51 @@ observed equivalent spellings, `plugins/goalrail` and `./plugins/goalrail`,
 while rejecting every other path. The older lifecycle acceptance fixture and
 receipt terminology were also aligned with the new observation verdicts.
 
+## homebrew-release-stage-driver
+
+- Owner: [decision 0013](decisions/0013-harden-homebrew-release-stage.md)
+- Added: `2026-08-12`
+- Revisit: after three real Homebrew promotions, or immediately after a false
+  accept, false reject, confusing recovery, credential ambiguity, or material
+  operator-cost complaint.
+- Current decision: `TRIAL`.
+
+The `v0.3.7` release separated expected external events from two real workflow
+defects. A concurrent `main` update and transient GitHub runner TLS failures
+were contained by existing identity checks. The tap write transport was not
+proved before a local formula commit, however, and Homebrew's valid outdated
+JSON with exit status `1` was repeatedly mistaken for command failure by ad hoc
+shell assertions.
+
+The trial replaces those repeated commands with two narrow contracts. The
+plugin bundles a read-only Homebrew state normalizer; the repository owns an
+idempotent formula promotion stage that requires an exact published release,
+recomputes the public archive digest, proves the canonical SSH write path
+before local mutation, accepts only an exact interrupted commit for resume,
+and verifies the remote Git blob after one push attempt. It does not combine or
+authorize the other release stages. Sabotage tests pin exit-status
+normalization, contradictory JSON, byte-conflicting same versions, rejected
+pushes without retry, exact resume, and pre-mutation permission and transport
+failures.
+
+The independent Fable critique returned `MODIFY` and required the write-capable
+preflight, byte-exact `NO_CHANGE`, Git-object postcheck, explicit resume state,
+noninteractive identity, public digest recomputation, and sabotage cases now
+implemented by the trial. Record each real promotion outcome and any manual
+work still needed; three successful promotions alone do not retain the trial
+if its recovery UX remains confusing.
+
+That critique reviewed the decision packet, not the final aggregate diff. The
+first closure-review request was stopped at its 10-minute ceiling without a
+result or any reported `claude-fable-5` usage, so it is not counted as the
+milestone's independent implementation review. A later bounded closure cycle
+stopped Fable after six minutes and Sonnet after four minutes: both receipts
+contained only internal Haiku preprocessing and no review result or target
+model usage. Neither attempt is counted. On `2026-08-12`, the owner explicitly
+deferred the independent implementation review for this milestone. Closure
+therefore records `OWNER_DEFERRED`; the decision does not count as a review
+pass and remains part of the trial evidence.
+
 ## cargo-pup-import-policy
 
 - Owner: [decision 0007](decisions/0007-reject-cargo-pup-dependency-gate.md)

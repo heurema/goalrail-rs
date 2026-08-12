@@ -12,6 +12,7 @@ index="$plugin_root/skills/goalrail/references/index.md"
 install="$plugin_root/skills/goalrail/references/install.md"
 plugin_lifecycle="$plugin_root/skills/goalrail/references/plugin-lifecycle.md"
 update_discovery="$plugin_root/skills/goalrail/references/update-discovery.md"
+homebrew_state="$plugin_root/skills/goalrail/scripts/homebrew-update-state.sh"
 public_install="$repo_root/crates/gr-site/public/install.md"
 remote_smoke="$repo_root/scripts/smoke-goalrail-plugin-remote.sh"
 
@@ -60,12 +61,17 @@ jq -e --arg version "$plugin_version" '
   and .interface.category == "Developer Tools"
 ' "$manifest" >/dev/null
 
-for file in "$skill" "$index" "$install" "$plugin_lifecycle" "$update_discovery" "$public_install"; do
+for file in "$skill" "$index" "$install" "$plugin_lifecycle" "$update_discovery" "$homebrew_state" "$public_install"; do
   test -s "$file" || {
     echo "goalrail plugin file is missing or empty: $file" >&2
     exit 1
   }
 done
+
+test -x "$homebrew_state" || {
+  echo "Goalrail Homebrew update-state helper is not executable: $homebrew_state" >&2
+  exit 1
+}
 
 test -x "$remote_smoke" || {
   echo "goalrail remote plugin smoke is missing or not executable: $remote_smoke" >&2
@@ -114,7 +120,8 @@ grep -F 'observation flow in that reference' "$skill" >/dev/null
 grep -F 'Codex host' "$skill" >/dev/null
 grep -F 'brew tap-info --json heurema/tap' "$update_discovery" >/dev/null
 grep -F 'git ls-remote --exit-code https://github.com/heurema/homebrew-tap.git refs/heads/main' "$update_discovery" >/dev/null
-grep -F 'HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2' "$update_discovery" >/dev/null
+grep -F 'scripts/homebrew-update-state.sh' "$update_discovery" >/dev/null
+grep -F 'only Goalrail-owned interpreter of `brew info` and `brew outdated`' "$update_discovery" >/dev/null
 grep -F '`brew info` reads the local tap' "$update_discovery" >/dev/null
 grep -F 'status --porcelain --untracked-files=no' "$update_discovery" >/dev/null
 grep -F 'symbolic-ref --short HEAD' "$update_discovery" >/dev/null

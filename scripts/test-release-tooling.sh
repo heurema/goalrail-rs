@@ -93,6 +93,7 @@ for script in \
   scripts/check-release-bundle.sh \
   scripts/check-remote-release-tag.sh \
   scripts/smoke-release-binary.sh \
+  scripts/promote-homebrew.sh \
   scripts/release-preflight.sh; do
   sh -n "$script"
 done
@@ -632,6 +633,7 @@ for required in \
   assemble-release.sh \
   check-release-bundle.sh \
   check-remote-release-tag.sh \
+  promote-homebrew.sh \
   smoke-release-binary.sh; do
   printf '#!/bin/sh\nexit 0\n' >"$preflight_root/scripts/$required"
   chmod 0755 "$preflight_root/scripts/$required"

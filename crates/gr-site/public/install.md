@@ -93,6 +93,13 @@ non-draft GitHub Release, and Homebrew reports no outdated Goalrail formula. A
 different commit is `STALE_METADATA`, not proof that an update exists or that
 nothing changed.
 
+After proving tap freshness, the installed Goalrail skill runs its bundled
+`scripts/homebrew-update-state.sh` helper. That helper is the single
+Goalrail-owned boundary for interpreting structured `brew info` and
+`brew outdated` output, including Homebrew's update-present exit status `1`.
+The agent must preserve a blocked helper finding instead of rebuilding the
+probe with ad hoc shell commands.
+
 Refreshing metadata is a separate change. After approval, the agent may run
 `brew update` once, explain that it refreshes Homebrew and tap metadata beyond
 Goalrail, and repeat the read-only check. If a newer formula is then available,

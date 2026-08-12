@@ -226,9 +226,32 @@ test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = \
 mise run smoke:goalrail-plugin-remote -- main "$version"
 ```
 
-Homebrew update remains another separately approved action. Candidate-branch
-deletion is destructive cleanup and also requires separate approval after
-`main`, the plugin smoke, public assets, and Homebrew state have been verified.
+Homebrew promotion remains another separately approved action. Resolve the
+existing tap checkout through read-only Homebrew metadata, present the exact
+version, selected run ID and attempt, and tap root, then obtain approval for
+this one command:
+
+```sh
+tap_root="$(HOMEBREW_NO_AUTO_UPDATE=1 brew tap-info --json heurema/tap |
+  jq -er 'if length == 1 then .[0].path else error("ambiguous tap") end')"
+mise run release:homebrew-promote -- \
+  "$version" "$run_id" "$run_attempt" "$tap_root"
+```
+
+The promotion stage does not call `brew`. It revalidates the exact successful
+candidate run, published release, bundle, public archive digest, source tag,
+tap identity, GitHub write permission, and canonical SSH push transport before
+editing the tap. It creates at most one formula-only commit, attempts one
+non-force push, and verifies the remote Git head and formula blob afterward.
+`NO_CHANGE` requires a clean tap at remote `main` and byte-identical formula;
+the same version with different bytes is `CONFLICT`.
+
+If a server rejects the push, the exact local commit is retained. Inspect it
+and the remote head; do not reset, rebase, force-push, or retry automatically.
+A later exact resume is another external push attempt and requires renewed
+owner approval. Candidate-branch deletion is destructive cleanup and also
+requires separate approval after `main`, the plugin smoke, public assets, and
+Homebrew state have been verified.
 
 ## Stop and recovery rules
 

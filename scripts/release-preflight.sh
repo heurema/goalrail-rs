@@ -67,6 +67,7 @@ for script in \
   scripts/assemble-release.sh \
   scripts/check-release-bundle.sh \
   scripts/check-remote-release-tag.sh \
+  scripts/promote-homebrew.sh \
   scripts/smoke-release-binary.sh; do
   [ -x "$script" ] ||
     add_finding "RELEASE_TOOL_MISSING" "required executable is missing: $script"

@@ -17,7 +17,9 @@ cargo test --workspace --locked
 ./scripts/check-assessment-boundary.sh
 ./scripts/test-assessment-boundary.sh
 ./scripts/test-goalrail-plugin.sh
+./scripts/test-homebrew-update-state.sh
 ./scripts/test-release-tooling.sh
+./scripts/test-homebrew-promotion.sh
 
 shellcheck \
   scripts/prepare-release.sh \
@@ -31,7 +33,11 @@ shellcheck \
   scripts/check-remote-release-tag.sh \
   scripts/check-remote-release-tag-absent.sh \
   scripts/smoke-release-binary.sh \
+  scripts/promote-homebrew.sh \
   scripts/release-preflight.sh \
-  scripts/test-release-tooling.sh
+  scripts/test-release-tooling.sh \
+  scripts/test-homebrew-promotion.sh \
+  scripts/test-homebrew-update-state.sh \
+  plugins/goalrail/skills/goalrail/scripts/homebrew-update-state.sh
 
 echo "RELEASE_CANDIDATE_SOURCE_OK"

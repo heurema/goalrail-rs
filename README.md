@@ -117,7 +117,7 @@ registration does not authorize plugin installation. These commands are not
 run by `mise run test:goalrail-plugin` or `mise run ci`.
 
 The marketplace entry uses the remote `git-subdir` source and pins
-`plugins/goalrail` to the immutable shared release tag `v0.3.7`. The catalog can
+`plugins/goalrail` to the immutable shared release tag `v0.3.8`. The catalog can
 refresh from `main`, while the payload remains immutable. A live canary also
 observed the current Codex host reconcile the catalog and installed cache at
 task startup, so starting a task is not documented here as a read-only update
@@ -130,7 +130,7 @@ Run `mise run test:goalrail-plugin` for offline package validation. After the
 exact ref has been pushed, run the real Git-backed smoke test with:
 
 ```bash
-mise run smoke:goalrail-plugin-remote -- main 0.3.7
+mise run smoke:goalrail-plugin-remote -- main 0.3.8
 ```
 
 The smoke test uses an isolated temporary `CODEX_HOME`; it does not register or
@@ -239,6 +239,9 @@ are unsigned, and Linux and Windows have no package-manager lifecycle yet.
 - [Native multi-platform release bundle](docs/decisions/0012-build-native-multi-platform-release-bundles.md)
   adds Windows and Linux assets without coupling build authority to GitHub
   Release or Homebrew publication.
+- [Hardened Homebrew release stage](docs/decisions/0013-harden-homebrew-release-stage.md)
+  replaces repeated Homebrew parsing and formula-push shell fragments with two
+  narrow fail-closed contracts while preserving separate release approvals.
 - [Model behavior evaluation proposal](docs/ideas/model-behavior-evaluation.md)
   defers a possible provider-neutral comparison mechanism until a named
   consumer and a reproducible receipt-backed comparison case both exist.

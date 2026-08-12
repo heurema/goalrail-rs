@@ -122,23 +122,28 @@ If the local and remote commits differ, report `STALE_METADATA`, leave
 does not refresh it and therefore cannot justify `NO_CHANGE` while the commits
 differ.
 
-Only when the commits match, read the available formula and let Homebrew decide
-whether it is outdated without another automatic refresh:
+Only when the commits match, resolve the directory containing the loaded
+Goalrail `SKILL.md` and execute its bundled diagnostic:
 
 ```sh
-HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2 heurema/tap/goalrail
-HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --json=v2 heurema/tap/goalrail
+<goalrail-skill-root>/scripts/homebrew-update-state.sh
 ```
 
-Require `brew info` and `brew outdated` to agree about the installed and current
-formula versions. Apply the public-baseline mapping above before deciding the
-verdict. When the current formula equals `latestRelease`, an empty `formulae`
-result and equal installed version mean `NO_CHANGE`; a listed `goalrail` with a
-lower installed version means `UPDATE_AVAILABLE` and
+Do not reconstruct the two Homebrew probes in the agent. This script is the
+only Goalrail-owned interpreter of `brew info` and `brew outdated`. It disables
+auto-update, validates their structured output together, and normalizes
+Homebrew's successful outdated exit status `1`. A nonzero helper exit is
+`BLOCKED`; preserve its finding instead of retrying or reparsing the raw output.
+
+Apply the public-baseline mapping above to the helper's installed and available
+versions before deciding the channel verdict. When the current formula equals
+`latestRelease`, helper `NO_CHANGE` means channel `NO_CHANGE`; helper
+`UPDATE_AVAILABLE` means `UPDATE_AVAILABLE` and
 `nextAction: REQUEST_HOMEBREW_UPGRADE_APPROVAL`. When the fresh formula trails
 `latestRelease`, report `CHANNEL_LAG` if it is already installed, or
 `UPDATE_AVAILABLE` with `channelLag: true` if it is newer than the installation.
-Any contradictory structured output is `BLOCKED`. Set `manager: HOMEBREW`.
+Helper `NOT_INSTALLED` maps to channel `NOT_INSTALLED`. Any contradictory
+structured output is `BLOCKED`. Set `manager: HOMEBREW`.
 
 When metadata is stale, explain that `brew update` refreshes Homebrew and tap
 metadata, not just Goalrail. Obtain approval for that refresh before running it

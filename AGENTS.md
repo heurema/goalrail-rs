@@ -4,7 +4,7 @@
 - Use English for code, comments, filenames, commands, commits, and technical
   documentation.
 - Before changing crate boundaries, dependency direction, public APIs, or CLI
-  command ownership, read `ARCHITECTURE-SPINE.md` and preserve its invariants.
+  command ownership, read `ARCHITECTURE.md` and preserve its invariants.
   If an invariant must change, update the spine before implementation.
 - Keep one diff focused on one purpose and preserve unrelated owner work.
 - Do not add repository-owned tooling implemented in Ruby. Homebrew Formula
@@ -25,6 +25,11 @@
   changes; any Rust source change requires diff-scoped mutation testing.
 - Do not commit, push, publish, release, deploy, or perform destructive work
   without explicit owner approval.
+- Before preparing a release candidate, pushing its branch or tag, dispatching
+  the native workflow, creating or publishing a GitHub Release, promoting
+  `main`, or updating Homebrew, read `docs/release.md`. Treat that runbook as the
+  canonical stage order and obtain separate approval for each state-changing
+  action it names.
 
 ## Milestone Closure Gate
 

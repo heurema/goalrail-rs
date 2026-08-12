@@ -156,7 +156,7 @@ holdout. Do not repeatedly tune against the same retired holdout.
 
 If this proposal is adopted:
 
-1. update `ARCHITECTURE-SPINE.md` before introducing the third crate;
+1. update `ARCHITECTURE.md` before introducing the third crate;
 2. add receipt and comparison types in a new `gr-eval` library;
 3. add a thin `gr eval compare` CLI adapter;
 4. verify comparison semantics using synthetic receipts only;

@@ -57,6 +57,9 @@ if [ ! -f LICENSE ] && [ ! -f LICENSE.md ]; then
 fi
 
 for script in \
+  scripts/check-release-candidate.sh \
+  scripts/check-github-release.sh \
+  scripts/check-remote-release-tag-absent.sh \
   scripts/prepare-release.sh \
   scripts/package-release.sh \
   scripts/check-release.sh \
@@ -81,16 +84,21 @@ if ! git diff --quiet || ! git diff --cached --quiet ||
 fi
 
 tag="v$version"
-if ! git show-ref --verify --quiet "refs/tags/$tag"; then
-  add_finding "TAG_MISSING" "HEAD must have the exact immutable version tag"
-elif [ "$(git cat-file -t "refs/tags/$tag")" != tag ]; then
-  add_finding "TAG_NOT_ANNOTATED" "the release tag must be annotated"
-elif [ "$(git rev-parse "refs/tags/$tag^{commit}")" != "$(git rev-parse HEAD)" ]; then
-  add_finding "TAG_COMMIT_MISMATCH" "the release tag must resolve to HEAD"
+if git show-ref --verify --quiet "refs/tags/$tag"; then
+  add_finding "LOCAL_TAG_EXISTS" "the candidate version already has a local tag"
+fi
+
+if remote_refs=$(git ls-remote origin \
+  "refs/tags/$tag" "refs/tags/$tag^{}" 2>/dev/null); then
+  if [ -n "$remote_refs" ]; then
+    add_finding "REMOTE_TAG_EXISTS" "the candidate version already has a remote tag"
+  fi
+else
+  add_finding "REMOTE_TAG_QUERY_FAILED" "the origin release tags could not be queried"
 fi
 
 if [ -s "$findings_file" ]; then
-  printf '{"schemaVersion":2,"verdict":"BLOCKED","version":"%s","findings":[' "$version"
+  printf '{"schemaVersion":3,"verdict":"BLOCKED","version":"%s","findings":[' "$version"
   first=1
   while IFS='|' read -r code message; do
     if [ "$first" -eq 0 ]; then
@@ -105,8 +113,8 @@ fi
 
 source_commit=$(git rev-parse HEAD)
 lock_sha256=$(checksum Cargo.lock) || {
-  printf '{"schemaVersion":2,"verdict":"BLOCKED","version":"%s","findings":[{"code":"CHECKSUM_TOOL_MISSING","message":"no SHA-256 command is available"}]}\n' "$version"
+  printf '{"schemaVersion":3,"verdict":"BLOCKED","version":"%s","findings":[{"code":"CHECKSUM_TOOL_MISSING","message":"no SHA-256 command is available"}]}\n' "$version"
   exit 4
 }
-printf '{"schemaVersion":2,"verdict":"READY","version":"%s","tag":"%s","sourceCommit":"%s","cargoLockSha256":"%s","findings":[]}\n' \
+printf '{"schemaVersion":3,"verdict":"READY_FOR_CANDIDATE","version":"%s","plannedTag":"%s","sourceCommit":"%s","cargoLockSha256":"%s","findings":[]}\n' \
   "$version" "$tag" "$source_commit" "$lock_sha256"

@@ -3,7 +3,7 @@
 set -eu
 
 usage() {
-  echo "Usage: $0 <version> <source-commit> [output-root]" >&2
+  echo "Usage: $0 <version> <source-commit> <run-id> <run-attempt> [output-root]" >&2
   exit 64
 }
 
@@ -26,19 +26,27 @@ checksum() {
   fi
 }
 
-if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
+if [ "$#" -lt 4 ] || [ "$#" -gt 5 ]; then
   usage
 fi
 
 version=$1
 source_commit=$2
-output_root=${3:-dist}
+run_id=$3
+run_attempt=$4
+output_root=${5:-dist}
 
 if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
   fail "version must use stable SemVer form: $version"
 fi
 if ! printf '%s\n' "$source_commit" | grep -Eq '^[0-9a-f]{40}$'; then
   fail "source commit must be a full Git SHA"
+fi
+if ! printf '%s\n' "$run_id" | grep -Eq '^[1-9][0-9]*$'; then
+  fail "run ID must be a positive integer"
+fi
+if ! printf '%s\n' "$run_attempt" | grep -Eq '^[1-9][0-9]*$'; then
+  fail "run attempt must be a positive integer"
 fi
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
@@ -81,13 +89,25 @@ jq -s \
   --arg version "$version" \
   --arg tag "$tag" \
   --arg source_commit "$source_commit" \
+  --arg run_id "$run_id" \
+  --arg run_attempt "$run_attempt" \
+  --arg workflow_name "build release candidate" \
+  --arg workflow_event "workflow_dispatch" \
+  --arg head_branch "release-candidate/$tag" \
   --arg lock_sha256 "$lock_sha256" \
   '{
-    schemaVersion: 2,
+    schemaVersion: 3,
     product: "goalrail",
     version: $version,
     tag: $tag,
     sourceCommit: $source_commit,
+    run: {
+      id: $run_id,
+      attempt: $run_attempt,
+      workflowName: $workflow_name,
+      event: $workflow_event,
+      headBranch: $head_branch
+    },
     cargoLockSha256: $lock_sha256,
     license: "MIT",
     artifacts: (sort_by(.target))
@@ -115,5 +135,5 @@ fi
 
 ruby -c "$formula" >/dev/null || fail "Homebrew formula has invalid Ruby syntax"
 
-printf '{"schemaVersion":2,"verdict":"READY","version":"%s","sourceCommit":"%s","targets":3}\n' \
-  "$version" "$source_commit"
+printf '{"schemaVersion":3,"verdict":"READY","version":"%s","sourceCommit":"%s","runId":"%s","runAttempt":"%s","targets":3}\n' \
+  "$version" "$source_commit" "$run_id" "$run_attempt"

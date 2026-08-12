@@ -32,32 +32,59 @@ command -v ruby >/dev/null 2>&1 || fail "ruby is unavailable"
   fail "LICENSE must be tracked as text"
 [ "$(git check-attr eol -- LICENSE)" = "LICENSE: eol: lf" ] ||
   fail "LICENSE must use LF in every checkout"
+[ "$(git check-attr text -- Cargo.lock)" = "Cargo.lock: text: set" ] ||
+  fail "Cargo.lock must be tracked as text"
+[ "$(git check-attr eol -- Cargo.lock)" = "Cargo.lock: eol: lf" ] ||
+  fail "Cargo.lock must use LF in every checkout"
+
+check_workflow_contract() {
+  workflow_file=$1
+
+  grep -F 'workflow_dispatch:' "$workflow_file" >/dev/null || return 1
+  if grep -Eq '^[[:space:]]+push:|contents:[[:space:]]*write|gh release|softprops/action-gh-release' \
+    "$workflow_file"; then
+    return 1
+  fi
+  if grep -F 'inputs.tag' "$workflow_file" >/dev/null; then
+    return 1
+  fi
+  # shellcheck disable=SC2016
+  for marker in \
+    'runner: macos-15' \
+    'target: aarch64-apple-darwin' \
+    'runner: ubuntu-22.04' \
+    'target: x86_64-unknown-linux-gnu' \
+    'runner: windows-2025' \
+    'target: x86_64-pc-windows-msvc' \
+    'persist-credentials: false' \
+    'WORKFLOW_COMMIT: ${{ github.sha }}' \
+    'ref: ${{ inputs.source_commit }}' \
+    '[[ "${WORKFLOW_COMMIT}" == "${REQUESTED_COMMIT}" ]]' \
+    '[[ "${source_commit}" == "${REQUESTED_COMMIT}" ]]' \
+    './scripts/check-release-candidate.sh' \
+    'goalrail-${{ needs.resolve.outputs.tag }}-release-candidate' \
+    '"${GITHUB_RUN_ID}" "${GITHUB_RUN_ATTEMPT}"' \
+    '"${GITHUB_WORKFLOW}" "${GITHUB_EVENT_NAME}" "${GITHUB_REF_NAME}" dist' \
+    'READY_FOR_TAG' \
+    'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' \
+    'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
+    'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c'; do
+    grep -F "$marker" "$workflow_file" >/dev/null || return 1
+  done
+  [ "$(grep -Fc './scripts/check-remote-release-tag-absent.sh' "$workflow_file")" -eq 2 ] ||
+    return 1
+  # shellcheck disable=SC2016
+  [ "$(grep -Fc '[[ "$(git rev-parse HEAD)" == "${SOURCE_COMMIT}" ]]' \
+    "$workflow_file")" -eq 3 ] || return 1
+}
 
 workflow=.github/workflows/release.yml
-grep -F 'workflow_dispatch:' "$workflow" >/dev/null ||
-  fail "release workflow is not manually dispatched"
-if grep -Eq '^[[:space:]]+push:|contents:[[:space:]]*write|gh release|softprops/action-gh-release' "$workflow"; then
-  fail "release workflow can publish instead of remaining build-only"
-fi
-# shellcheck disable=SC2016
-for marker in \
-  'runner: macos-15' \
-  'target: aarch64-apple-darwin' \
-  'runner: ubuntu-22.04' \
-  'target: x86_64-unknown-linux-gnu' \
-  'runner: windows-2025' \
-  'target: x86_64-pc-windows-msvc' \
-  'persist-credentials: false' \
-  'check-remote-release-tag.sh' \
-  'goalrail-${{ inputs.tag }}-*.json' \
-  'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' \
-  'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
-  'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c'; do
-  grep -F "$marker" "$workflow" >/dev/null ||
-    fail "release workflow is missing invariant: $marker"
-done
+check_workflow_contract "$workflow" || fail "release workflow contract is incomplete"
 
 for script in \
+  scripts/check-release-candidate.sh \
+  scripts/check-github-release.sh \
+  scripts/check-remote-release-tag-absent.sh \
   scripts/prepare-release.sh \
   scripts/package-release.sh \
   scripts/check-release.sh \
@@ -81,6 +108,42 @@ cleanup() {
   rm -rf "$output_root" "$fixture_root"
 }
 trap cleanup EXIT HUP INT TERM
+
+workflow_sha_mutant="$fixture_root/workflow-without-sha-binding.yml"
+# shellcheck disable=SC2016
+sed '/\[\[ "${WORKFLOW_COMMIT}" == "${REQUESTED_COMMIT}" \]\]/d' \
+  "$workflow" >"$workflow_sha_mutant"
+if check_workflow_contract "$workflow_sha_mutant"; then
+  fail "workflow contract accepted a missing dispatch SHA binding"
+fi
+
+workflow_tag_mutant="$fixture_root/workflow-without-final-tag-check.yml"
+awk '
+  /check-remote-release-tag-absent\.sh/ {
+    count += 1
+    if (count == 2) next
+  }
+  { print }
+' "$workflow" >"$workflow_tag_mutant"
+if check_workflow_contract "$workflow_tag_mutant"; then
+  fail "workflow contract accepted a missing final tag-absence check"
+fi
+
+line_endings_repo="$fixture_root/line-endings-repo"
+line_endings_checkout="$fixture_root/line-endings-checkout"
+mkdir -p "$line_endings_repo"
+cp .gitattributes LICENSE Cargo.lock "$line_endings_repo/"
+git -C "$line_endings_repo" init -q
+git -C "$line_endings_repo" config user.name fixture
+git -C "$line_endings_repo" config user.email fixture@example.invalid
+git -C "$line_endings_repo" add .
+git -C "$line_endings_repo" commit -q -m line-endings
+git clone -q -c core.autocrlf=true \
+  "$line_endings_repo" "$line_endings_checkout"
+cmp -s LICENSE "$line_endings_checkout/LICENSE" ||
+  fail "core.autocrlf changed LICENSE bytes"
+cmp -s Cargo.lock "$line_endings_checkout/Cargo.lock" ||
+  fail "core.autocrlf changed Cargo.lock bytes"
 
 system=$(uname -s)
 machine=$(uname -m)
@@ -214,9 +277,11 @@ for target in \
 done
 
 scripts/assemble-release.sh \
-  "$version" "$source_commit" "$output_root/bundle" >/dev/null
+  "$version" "$source_commit" 123456789 2 \
+  'build release candidate' workflow_dispatch "release-candidate/v$version" \
+  "$output_root/bundle" >/dev/null
 scripts/check-release-bundle.sh \
-  "$version" "$source_commit" "$output_root/bundle" >/dev/null
+  "$version" "$source_commit" 123456789 2 "$output_root/bundle" >/dev/null
 
 fake_file_bin="$fixture_root/fake-file-bin"
 mkdir -p "$fake_file_bin"
@@ -297,8 +362,19 @@ cp "$release_manifest" "$release_manifest_clean"
 jq '.sourceCommit = "0000000000000000000000000000000000000000"' \
   "$release_manifest_clean" >"$release_manifest"
 if scripts/check-release-bundle.sh \
-  "$version" "$source_commit" "$output_root/bundle" >/dev/null 2>&1; then
+  "$version" "$source_commit" 123456789 2 \
+  "$output_root/bundle" >/dev/null 2>&1; then
   fail "release tooling accepted a mismatched aggregate manifest"
+fi
+mv "$release_manifest_clean" "$release_manifest"
+
+release_manifest_clean="$release_manifest.clean"
+cp "$release_manifest" "$release_manifest_clean"
+jq '.run.id = "987654321"' "$release_manifest_clean" >"$release_manifest"
+if scripts/check-release-bundle.sh \
+  "$version" "$source_commit" 123456789 2 \
+  "$output_root/bundle" >/dev/null 2>&1; then
+  fail "release tooling accepted a mismatched workflow run ID"
 fi
 mv "$release_manifest_clean" "$release_manifest"
 
@@ -310,8 +386,142 @@ awk -v version="$version" '
   /^[[:space:]]+sha256 / { printf "  version(\"%s\")\n", version }
 ' "$formula_clean" >"$formula"
 if scripts/check-release-bundle.sh \
-  "$version" "$source_commit" "$output_root/bundle" >/dev/null 2>&1; then
+  "$version" "$source_commit" 123456789 2 \
+  "$output_root/bundle" >/dev/null 2>&1; then
   fail "release tooling accepted an explicit formula version"
+fi
+mv "$formula_clean" "$formula"
+
+release_response="$fixture_root/release-response.json"
+jq -n --arg tag "v$version" '{
+  tagName: $tag,
+  isDraft: true,
+  isPrerelease: false,
+  assets: []
+}' >"$release_response"
+for asset in \
+  "goalrail-v$version-aarch64-apple-darwin.tar.gz" \
+  "goalrail-v$version-aarch64-apple-darwin.tar.gz.sha256" \
+  "goalrail-v$version-aarch64-apple-darwin.json" \
+  "goalrail-v$version-x86_64-unknown-linux-gnu.tar.gz" \
+  "goalrail-v$version-x86_64-unknown-linux-gnu.tar.gz.sha256" \
+  "goalrail-v$version-x86_64-unknown-linux-gnu.json" \
+  "goalrail-v$version-x86_64-pc-windows-msvc.tar.gz" \
+  "goalrail-v$version-x86_64-pc-windows-msvc.tar.gz.sha256" \
+  "goalrail-v$version-x86_64-pc-windows-msvc.json" \
+  goalrail.rb \
+  release.json; do
+  asset_file="$release_dir/$asset"
+  asset_digest="sha256:$(checksum "$asset_file")"
+  asset_size=$(wc -c <"$asset_file" | tr -d ' ')
+  jq \
+    --arg name "$asset" \
+    --arg digest "$asset_digest" \
+    --argjson size "$asset_size" \
+    '.assets += [{name: $name, state: "uploaded", digest: $digest, size: $size}]' \
+    "$release_response" >"$release_response.next"
+  mv "$release_response.next" "$release_response"
+done
+
+fake_gh_bin="$fixture_root/fake-gh-bin"
+mkdir -p "$fake_gh_bin"
+cat >"$fake_gh_bin/gh" <<'EOF'
+#!/bin/sh
+set -eu
+[ "$1" = release ]
+[ "$2" = view ]
+cat "${GOALRAIL_TEST_GH_RESPONSE:?}"
+EOF
+chmod 0755 "$fake_gh_bin/gh"
+public_work="$fixture_root/public-work"
+public_remote="$fixture_root/public-remote.git"
+git clone -q --no-tags . "$public_work"
+git init -q --bare "$public_remote"
+git -C "$public_work" config user.name fixture
+git -C "$public_work" config user.email fixture@example.invalid
+git -C "$public_work" tag -a "v$version" "$source_commit" -m release
+git -C "$public_work" push -q "$public_remote" "refs/tags/v$version"
+PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_RESPONSE="$release_response" \
+  scripts/check-github-release.sh \
+    "$version" draft 123456789 2 \
+    "$output_root/bundle" "$public_remote" >/dev/null
+
+if PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_RESPONSE="$release_response" \
+  scripts/check-github-release.sh \
+    "$version" draft 987654321 2 \
+    "$output_root/bundle" "$public_remote" >/dev/null 2>&1; then
+  fail "GitHub Release checker accepted a different selected run ID"
+fi
+
+jq 'del(.assets[0])' "$release_response" >"$release_response.partial"
+partial_output=$(PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_RESPONSE="$release_response.partial" \
+  scripts/check-github-release.sh \
+    "$version" draft-partial 123456789 2 \
+    "$output_root/bundle" "$public_remote")
+printf '%s\n' "$partial_output" | jq -e \
+  --arg missing "goalrail-v$version-aarch64-apple-darwin.tar.gz" '
+    .verdict == "DRAFT_PARTIAL_VERIFIED"
+    and .runId == "123456789"
+    and .runAttempt == "2"
+    and .missing == [$missing]
+  ' >/dev/null || fail "partial draft checker did not report the exact missing asset"
+if PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_RESPONSE="$release_response.partial" \
+  scripts/check-github-release.sh \
+    "$version" draft 123456789 2 \
+    "$output_root/bundle" "$public_remote" >/dev/null 2>&1; then
+  fail "complete draft checker accepted a missing public asset"
+fi
+
+jq '.isDraft = false' "$release_response" >"$release_response.published"
+PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_RESPONSE="$release_response.published" \
+  scripts/check-github-release.sh \
+    "$version" published 123456789 2 \
+    "$output_root/bundle" "$public_remote" >/dev/null
+
+jq '.assets += [{
+  name: "unexpected.txt",
+  state: "uploaded",
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  size: 0
+}]' "$release_response" >"$release_response.extra"
+if PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_RESPONSE="$release_response.extra" \
+  scripts/check-github-release.sh \
+    "$version" draft 123456789 2 \
+    "$output_root/bundle" "$public_remote" >/dev/null 2>&1; then
+  fail "GitHub Release checker accepted an unexpected public asset"
+fi
+
+jq '(.assets[0].digest) = "sha256:0000000000000000000000000000000000000000000000000000000000000000"' \
+  "$release_response" >"$release_response.tampered"
+if PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_RESPONSE="$release_response.tampered" \
+  scripts/check-github-release.sh \
+    "$version" draft 123456789 2 \
+    "$output_root/bundle" "$public_remote" >/dev/null 2>&1; then
+  fail "GitHub Release checker accepted a mismatched public digest"
+fi
+if PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_RESPONSE="$release_response.tampered" \
+  scripts/check-github-release.sh \
+    "$version" draft-partial 123456789 2 \
+    "$output_root/bundle" "$public_remote" >/dev/null 2>&1; then
+  fail "partial draft checker accepted a mismatched existing digest"
+fi
+
+git -C "$public_work" tag -f -a "v$version" HEAD^ -m moved >/dev/null
+git -C "$public_work" push -q --force "$public_remote" "refs/tags/v$version"
+if PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_RESPONSE="$release_response" \
+  scripts/check-github-release.sh \
+    "$version" draft 123456789 2 \
+    "$output_root/bundle" "$public_remote" >/dev/null 2>&1; then
+  fail "GitHub Release checker accepted a moved remote release tag"
 fi
 
 remote_repo="$fixture_root/remote.git"
@@ -322,8 +532,13 @@ git -C "$remote_work" config user.name fixture
 git -C "$remote_work" config user.email fixture@example.invalid
 git -C "$remote_work" commit -q --allow-empty -m first
 remote_commit=$(git -C "$remote_work" rev-parse HEAD)
+scripts/check-remote-release-tag-absent.sh v1.2.3 "$remote_repo" >/dev/null
 git -C "$remote_work" tag -a v1.2.3 -m release
 git -C "$remote_work" push -q "$remote_repo" HEAD:refs/heads/main refs/tags/v1.2.3
+if scripts/check-remote-release-tag-absent.sh \
+  v1.2.3 "$remote_repo" >/dev/null 2>&1; then
+  fail "remote tag absence checker accepted an existing tag"
+fi
 scripts/check-remote-release-tag.sh v1.2.3 "$remote_commit" "$remote_repo" >/dev/null
 git -C "$remote_work" commit -q --allow-empty -m second
 git -C "$remote_work" tag -f -a v1.2.3 -m moved >/dev/null
@@ -333,4 +548,107 @@ if scripts/check-remote-release-tag.sh \
   fail "remote release tag checker accepted a moved tag"
 fi
 
-echo "RELEASE_TOOLING_TEST_OK targets=3 native=$host_target sabotage=manifest,rustc-host,archive,binary-format,aggregate,formula,remote-tag"
+preflight_root="$fixture_root/preflight"
+mkdir -p \
+  "$preflight_root/.github/workflows" \
+  "$preflight_root/release/homebrew" \
+  "$preflight_root/scripts" \
+  "$preflight_root/src"
+cp scripts/release-preflight.sh "$preflight_root/scripts/release-preflight.sh"
+cp release/homebrew/goalrail.rb.in "$preflight_root/release/homebrew/goalrail.rb.in"
+cp LICENSE "$preflight_root/LICENSE"
+cp .github/workflows/release.yml "$preflight_root/.github/workflows/release.yml"
+for required in \
+  check-release-candidate.sh \
+  check-github-release.sh \
+  check-remote-release-tag-absent.sh \
+  prepare-release.sh \
+  package-release.sh \
+  check-release.sh \
+  assemble-release.sh \
+  check-release-bundle.sh \
+  check-remote-release-tag.sh \
+  smoke-release-binary.sh; do
+  printf '#!/bin/sh\nexit 0\n' >"$preflight_root/scripts/$required"
+  chmod 0755 "$preflight_root/scripts/$required"
+done
+cat >"$preflight_root/Cargo.toml" <<'EOF'
+[package]
+name = "gr"
+version = "1.2.3"
+edition = "2024"
+EOF
+printf 'fn main() {}\n' >"$preflight_root/src/main.rs"
+cargo generate-lockfile --quiet --offline --manifest-path "$preflight_root/Cargo.toml"
+git -C "$preflight_root" init -q
+git -C "$preflight_root" config user.name fixture
+git -C "$preflight_root" config user.email fixture@example.invalid
+git -C "$preflight_root" add .
+git -C "$preflight_root" commit -q -m candidate
+preflight_remote="$fixture_root/preflight-remote.git"
+git init -q --bare "$preflight_remote"
+git -C "$preflight_root" remote add origin "$preflight_remote"
+preflight_output=$("$preflight_root/scripts/release-preflight.sh" 1.2.3)
+printf '%s\n' "$preflight_output" | jq -e '
+  .schemaVersion == 3
+  and .verdict == "READY_FOR_CANDIDATE"
+  and .version == "1.2.3"
+  and .plannedTag == "v1.2.3"
+  and (.sourceCommit | test("^[0-9a-f]{40}$"))
+' >/dev/null || fail "preflight did not accept a clean untagged candidate"
+
+printf 'dirty\n' >>"$preflight_root/LICENSE"
+if dirty_output=$("$preflight_root/scripts/release-preflight.sh" 1.2.3); then
+  fail "preflight accepted a dirty candidate"
+else
+  dirty_status=$?
+fi
+[ "$dirty_status" -eq 4 ] || fail "dirty preflight returned an unexpected exit code"
+printf '%s\n' "$dirty_output" | jq -e '
+  .verdict == "BLOCKED"
+  and any(.findings[]; .code == "WORKTREE_DIRTY")
+' >/dev/null || fail "dirty preflight omitted WORKTREE_DIRTY"
+git -C "$preflight_root" restore LICENSE
+
+git -C "$preflight_root" tag -a v1.2.3 -m release
+if tagged_output=$("$preflight_root/scripts/release-preflight.sh" 1.2.3); then
+  fail "preflight accepted an existing candidate tag"
+else
+  tagged_status=$?
+fi
+[ "$tagged_status" -eq 4 ] || fail "tagged preflight returned an unexpected exit code"
+printf '%s\n' "$tagged_output" | jq -e '
+  .verdict == "BLOCKED"
+  and any(.findings[]; .code == "LOCAL_TAG_EXISTS")
+' >/dev/null || fail "tagged preflight omitted LOCAL_TAG_EXISTS"
+git -C "$preflight_root" tag -d v1.2.3 >/dev/null
+
+git -C "$preflight_root" tag -a v1.2.3 -m release
+git -C "$preflight_root" push -q origin refs/tags/v1.2.3
+git -C "$preflight_root" tag -d v1.2.3 >/dev/null
+if remote_tagged_output=$("$preflight_root/scripts/release-preflight.sh" 1.2.3); then
+  fail "preflight accepted an existing remote candidate tag"
+else
+  remote_tagged_status=$?
+fi
+[ "$remote_tagged_status" -eq 4 ] ||
+  fail "remote-tagged preflight returned an unexpected exit code"
+printf '%s\n' "$remote_tagged_output" | jq -e '
+  .verdict == "BLOCKED"
+  and any(.findings[]; .code == "REMOTE_TAG_EXISTS")
+' >/dev/null || fail "tagged preflight omitted REMOTE_TAG_EXISTS"
+
+git -C "$preflight_root" remote set-url origin "$fixture_root/missing-remote.git"
+if unavailable_remote_output=$("$preflight_root/scripts/release-preflight.sh" 1.2.3); then
+  fail "preflight accepted an unavailable release remote"
+else
+  unavailable_remote_status=$?
+fi
+[ "$unavailable_remote_status" -eq 4 ] ||
+  fail "unavailable-remote preflight returned an unexpected exit code"
+printf '%s\n' "$unavailable_remote_output" | jq -e '
+  .verdict == "BLOCKED"
+  and any(.findings[]; .code == "REMOTE_TAG_QUERY_FAILED")
+' >/dev/null || fail "preflight omitted REMOTE_TAG_QUERY_FAILED"
+
+echo "RELEASE_TOOLING_TEST_OK targets=3 native=$host_target sabotage=line-endings,workflow-sha,workflow-final-tag,manifest,rustc-host,archive,binary-format,aggregate,run-receipt,formula,selected-run,public-state,public-assets,public-digest,public-tag-binding,remote-tag,tag-absence,preflight"

@@ -1,14 +1,14 @@
 # Decision 0012: Build native multi-platform release bundles
 
-- Status: accepted; local tooling implemented, native runner canary pending
+- Status: accepted; pre-tag candidate flow implemented, live native canary pending
 - Date: 2026-08-11
 - Owner: project owner
 
 ## Decision question
 
-How should Goalrail add Windows and Linux binaries without weakening the
-existing separation between tag creation, GitHub Release publication, and the
-Homebrew tap update?
+How should Goalrail build and verify Windows, Linux, and macOS binaries before
+creating an immutable tag, without weakening the separation between candidate
+verification, tag creation, GitHub Release publication, and Homebrew update?
 
 ## Constraints and verified facts
 
@@ -30,6 +30,10 @@ Homebrew tap update?
 - Homebrew remains the package owner only for macOS arm64. Goalrail has not
   selected a Linux or Windows package manager, installer, signing identity, or
   updater.
+- Four real native workflow runs for `v0.3.2` through `v0.3.5` failed before
+  publication on independent portability or release-contract defects. Because
+  the workflow required an existing immutable tag, each failure consumed a
+  version even though no GitHub Release was created.
 
 ## Options
 
@@ -46,11 +50,30 @@ Homebrew tap update?
 
 Select option 3.
 
-The workflow accepts exactly one existing annotated stable tag. Its first job
-resolves that tag to a full commit SHA and workspace version. Every later job
-checks out the SHA rather than the tag name and rechecks that the tag still
-resolves to the selected commit. Build jobs use `Cargo.lock`, `--locked`, and
-the exact Rust version declared in `mise.toml`.
+The first native canaries exposed a second decision within that build-only
+option:
+
+1. Keep requiring an immutable tag before native verification. Rejected because
+   every pre-publication portability failure consumes a public version name.
+2. Build from a mutable candidate tag and move or delete it after verification.
+   Rejected because mutable tag semantics weaken identity and leave ambiguous
+   recovery behavior.
+3. Build from one exact remote commit, emit a candidate receipt, and create the
+   immutable tag only after the complete candidate passes. Selected.
+
+The build-only workflow accepts exactly one full source commit SHA before a tag
+exists. The workflow-dispatch ref, GitHub's resolved workflow SHA, and the input
+source SHA must be identical, so an agent cannot run reviewed source through a
+different workflow definition. Every later job checks out that exact commit.
+The workspace version defines one planned stable tag, and both the resolve and
+aggregate jobs require that tag to remain absent on the remote. Build jobs use
+`Cargo.lock`, `--locked`, and the exact Rust version declared in `mise.toml`.
+
+The workflow emits `READY_FOR_TAG`, not `READY_FOR_PUBLICATION`. A successful
+candidate binds the planned tag, source commit, workflow run ID and attempt,
+workflow name, dispatch event, candidate branch, Cargo.lock digest, target
+manifests, runner metadata, and native artifacts. It does not create or push a
+tag, create a GitHub Release, update `main`, or modify Homebrew.
 
 The first target set is deliberately narrow:
 
@@ -74,7 +97,7 @@ Each native job must:
 4. package only the MIT license and native binary;
 5. verify the archive, checksum, and exact target manifest.
 
-The aggregate bundle records the tag, full source commit, Cargo.lock SHA-256,
+The aggregate bundle records the planned tag, full source commit, Cargo.lock SHA-256,
 target identities, artifact digests and sizes, Rust release/host, and runner
 image metadata. The assembly job refuses missing targets, mixed commits,
 mixed lock digests, extra manifest fields, checksum drift, target-to-rustc-host
@@ -85,8 +108,8 @@ Ruby and fails closed when Ruby is unavailable.
 
 The workflow uses `contents: read`, disables persisted checkout credentials,
 and pins third-party actions to full commit SHAs with version comments. It
-uploads a 14-day Actions artifact and explicitly reports
-`READY_FOR_PUBLICATION`; it has no GitHub Release or Homebrew write path.
+uploads a 14-day Actions artifact and explicitly reports `READY_FOR_TAG`; it has
+no tag, GitHub Release, branch, or Homebrew write path.
 
 ## Independent critique and resolved objections
 
@@ -106,27 +129,55 @@ configuration works. The first public multi-platform release still requires a
 real workflow canary, downloaded-bundle verification, and post-publication
 asset checks.
 
-The assembly job resolves the annotated tag from the remote again immediately
-before emitting `READY_FOR_PUBLICATION`. Post-download verification repeats the
-same remote peeled-tag comparison before the separately approved publication,
-so a moved or replaced tag cannot be hidden by checkout's local ref snapshot.
+The assembly job rechecks that the planned tag is absent immediately before
+emitting `READY_FOR_TAG`. The agent then downloads one explicitly selected run,
+verifies the bundle against its recorded source commit, creates and pushes the
+annotated tag only after separate approval, and checks the remote peeled tag
+before any publication step.
+
+An independent authority review requested signed attestations, tag-protection
+rules, and a write-capable promotion workflow. Those are not adopted in this
+amendment because they add external configuration and release authority beyond
+the current build-only trial. The repository continues to state that checksums
+and manifests prove consistency, not publisher authenticity. Revisit those
+controls before multiple release operators or automated publication are added.
+
+The review also found two gaps that are adopted here:
+
+- a transport or draft-upload failure may resume against the same tag only when
+  every already uploaded asset is expected and its size and digest match the
+  verified candidate; a partial-draft readback supplies the exact missing-asset
+  allowlist before any resume upload;
+- public readback must compare the exact asset set, sizes, and GitHub-reported
+  SHA-256 digests, rather than treating asset-name presence as publication proof.
+  It also revalidates that the remote annotated tag still resolves to the source
+  commit recorded by the verified aggregate manifest and that the manifest's
+  run ID and attempt equal the explicitly selected workflow run.
+
+Critique receipt: requested and actual model `claude-fable-5`, status `success`,
+no fallback, exposed cost `$0.405929`.
 
 ## Publication and rollback
 
-Dispatching the workflow, creating the GitHub Release, and updating the
-Homebrew tap each require their own exact owner approval. Publication must use
-the complete verified bundle from one successful run. An existing release or
-asset name is a hard collision; no file is replaced or uploaded with clobber
-semantics.
+Pushing a candidate branch, dispatching the workflow, creating and pushing the
+tag, creating a draft GitHub Release, making that draft public, promoting
+`main`, and updating the Homebrew tap each require their own exact owner
+approval. Publication must use the complete verified bundle from one selected
+successful run.
 
-A build or assembly failure publishes nothing. A defect discovered after
-publication is corrected with a higher patch release; the immutable tag and
-assets are not moved or replaced. The Homebrew tap remains unchanged until its
-separate approved update.
+A build or assembly failure before tag creation publishes nothing and may be
+corrected at the same version on a new commit. Once the tag exists, any source
+or artifact content change requires a higher patch version; the immutable tag
+and published assets are never replaced. A failed upload of the same verified
+bytes may resume in the still-private draft after digest comparison. The draft
+becomes public only after exact asset and digest readback passes. A defect found
+after publication requires a higher patch release. The Homebrew tap remains
+unchanged until its separate approved update.
 
 ## Revisit condition
 
 Revisit when a real user needs Linux arm64, Windows arm64, an older Linux ABI
 floor, package-manager ownership on Linux or Windows, Windows signing, release
-attestations, or when runner-image drift makes the current provenance receipt
+attestations, multiple release operators, automated promotion, enforced tag
+protection, or when runner-image drift makes the current provenance receipt
 insufficient.

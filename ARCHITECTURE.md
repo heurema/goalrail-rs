@@ -1,11 +1,12 @@
-# Goalrail Architecture Spine
+# Goalrail Architecture
 
-- Status: adopted; AD-6 remediation in progress
+- Status: adopted; AD-6 assessment boundary enforced, remaining stages review-only
 - Scope: the Rust workspace
 - Last verified: 2026-08-11
 
-This file records only durable, non-obvious boundaries that independent
-contributors or agents could otherwise implement incompatibly. The code owns
+This file records the architecture spine: only durable, non-obvious boundaries
+that independent contributors or agents could otherwise implement
+incompatibly. The code owns
 discoverable details such as the complete file tree and internal type layout.
 
 ## Design paradigm

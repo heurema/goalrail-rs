@@ -58,7 +58,7 @@ only commands that run their checks before writing evidence.
 ## architecture-fitness-v0
 
 - Owner: [decision 0004](decisions/0004-trial-native-architecture-fitness.md)
-  and [`ARCHITECTURE-SPINE.md`](../ARCHITECTURE-SPINE.md#enforcement-status)
+  and [`ARCHITECTURE.md`](../ARCHITECTURE.md#enforcement-status)
 - Added: `2026-08-10`
 - Closed: `2026-08-11`
 - Current decision: `REMOVE`.
@@ -87,7 +87,7 @@ scoped and sabotage-tested; do not implement them as repository-owned Ruby.
 ## cargo-public-api-facade
 
 - Owner: [decision 0006](decisions/0006-trial-cargo-public-api.md)
-  and [`ARCHITECTURE-SPINE.md`](../ARCHITECTURE-SPINE.md#enforcement-status)
+  and [`ARCHITECTURE.md`](../ARCHITECTURE.md#enforcement-status)
 - Added: `2026-08-11`
 - Revisit: after three real facade-change reviews or by `2026-09-11`, whichever
   comes first.
@@ -120,7 +120,7 @@ unchanged; the second consumer does not widen this trial's claim.
 ## identity-based-architecture-drift
 
 - Owner: [decision 0009](decisions/0009-trial-identity-based-architecture-drift.md)
-  and [`ARCHITECTURE-SPINE.md`](../ARCHITECTURE-SPINE.md#enforcement-status)
+  and [`ARCHITECTURE.md`](../ARCHITECTURE.md#enforcement-status)
 - Added: `2026-08-11`
 - Revisit: after three real aggregate architecture reviews or by `2026-09-11`,
   whichever comes first.
@@ -202,7 +202,7 @@ mechanism gaps listed in decision 0007.
 ## compiler-enforced-skill-assessment-boundary
 
 - Owner: [decision 0008](decisions/0008-enforce-skill-assessment-crate-boundary.md)
-  and [`ARCHITECTURE-SPINE.md`](../ARCHITECTURE-SPINE.md#enforcement-status)
+  and [`ARCHITECTURE.md`](../ARCHITECTURE.md#enforcement-status)
 - Added: `2026-08-11`
 - Revisit: after three skill behavior or stage-boundary milestones, or by
   `2026-09-11`, whichever comes first.

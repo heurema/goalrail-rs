@@ -1,12 +1,12 @@
 [package]
 name = "gr-inspect-codex"
 version.workspace = true
-edition = "2024"
-license = "MIT"
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
-gr-skill-assessment = { path = "../gr-skill-assessment" }
-memchr = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["raw_value"] }
-toml = "1.1.4"
+gr-skill-assessment.workspace = true
+memchr.workspace = true
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = { workspace = true, features = ["raw_value"] }
+toml.workspace = true

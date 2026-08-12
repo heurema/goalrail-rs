@@ -1,9 +1,9 @@
 [package]
 name = "gr-skill-assessment"
 version.workspace = true
-edition = "2024"
-license = "MIT"
+edition.workspace = true
+license.workspace = true
 publish = false
 
 [dependencies]
-serde = { version = "1", default-features = false, features = ["alloc", "derive"] }
+serde = { workspace = true, features = ["alloc", "derive"] }

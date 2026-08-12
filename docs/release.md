@@ -64,7 +64,7 @@ branch, source commit, version, and planned tag, then obtain approval for this
 push only:
 
 ```sh
-git push origin "$source_commit:refs/heads/$candidate_branch"
+git push origin "${source_commit}:refs/heads/${candidate_branch}"
 test "$(git ls-remote origin "refs/heads/$candidate_branch" | awk '{print $1}')" = \
   "$source_commit"
 ```
@@ -220,7 +220,7 @@ fast-forward push of the exact source commit:
 scripts/check-remote-release-tag.sh "$tag" "$source_commit" origin
 git fetch origin main
 git merge-base --is-ancestor origin/main "$source_commit"
-git push origin "$source_commit:refs/heads/main"
+git push origin "${source_commit}:refs/heads/main"
 test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = \
   "$source_commit"
 mise run smoke:goalrail-plugin-remote -- main "$version"

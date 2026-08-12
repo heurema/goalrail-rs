@@ -78,8 +78,25 @@ check_workflow_contract() {
     "$workflow_file")" -eq 3 ] || return 1
 }
 
+check_release_runbook_contract() {
+  runbook_file=$1
+
+  # shellcheck disable=SC2016
+  grep -F 'git push origin "${source_commit}:refs/heads/${candidate_branch}"' \
+    "$runbook_file" >/dev/null || return 1
+  # shellcheck disable=SC2016
+  grep -F 'git push origin "${source_commit}:refs/heads/main"' \
+    "$runbook_file" >/dev/null || return 1
+  if grep -Eq '"\$[[:alpha:]_][[:alnum:]_]*:' "$runbook_file"; then
+    return 1
+  fi
+}
+
 workflow=.github/workflows/release.yml
 check_workflow_contract "$workflow" || fail "release workflow contract is incomplete"
+release_runbook=docs/release.md
+check_release_runbook_contract "$release_runbook" ||
+  fail "release runbook contains a shell-ambiguous refspec"
 
 for script in \
   scripts/check-release-candidate.sh \
@@ -110,6 +127,27 @@ cleanup() {
   rm -rf "$output_root" "$fixture_root"
 }
 trap cleanup EXIT HUP INT TERM
+
+runbook_refspec_mutant="$fixture_root/release-runbook-unsafe-refspec.md"
+# shellcheck disable=SC2016
+sed 's|"${source_commit}:refs/heads/${candidate_branch}"|"$source_commit:refs/heads/$candidate_branch"|' \
+  "$release_runbook" >"$runbook_refspec_mutant"
+if cmp -s "$release_runbook" "$runbook_refspec_mutant"; then
+  fail "release runbook refspec sabotage did not change the fixture"
+fi
+if check_release_runbook_contract "$runbook_refspec_mutant"; then
+  fail "release runbook contract accepted a zsh-ambiguous refspec"
+fi
+runbook_main_refspec_mutant="$fixture_root/release-runbook-unsafe-main-refspec.md"
+# shellcheck disable=SC2016
+sed 's|"${source_commit}:refs/heads/main"|"$source_commit:refs/heads/main"|' \
+  "$release_runbook" >"$runbook_main_refspec_mutant"
+if cmp -s "$release_runbook" "$runbook_main_refspec_mutant"; then
+  fail "release runbook main-refspec sabotage did not change the fixture"
+fi
+if check_release_runbook_contract "$runbook_main_refspec_mutant"; then
+  fail "release runbook contract accepted a zsh-ambiguous main refspec"
+fi
 
 workflow_sha_mutant="$fixture_root/workflow-without-sha-binding.yml"
 # shellcheck disable=SC2016
@@ -717,4 +755,4 @@ printf '%s\n' "$unavailable_remote_output" | jq -e '
   and any(.findings[]; .code == "REMOTE_TAG_QUERY_FAILED")
 ' >/dev/null || fail "preflight omitted REMOTE_TAG_QUERY_FAILED"
 
-echo "RELEASE_TOOLING_TEST_OK targets=3 native=$host_target sabotage=line-endings,workflow-sha,workflow-final-tag,manifest,rustc-host,archive,binary-format,aggregate,run-receipt,run-rest-identity,formula,selected-run,public-state,public-assets,public-digest,public-tag-binding,remote-tag,tag-absence,preflight"
+echo "RELEASE_TOOLING_TEST_OK targets=3 native=$host_target sabotage=line-endings,runbook-refspec,workflow-sha,workflow-final-tag,manifest,rustc-host,archive,binary-format,aggregate,run-receipt,run-rest-identity,formula,selected-run,public-state,public-assets,public-digest,public-tag-binding,remote-tag,tag-absence,preflight"

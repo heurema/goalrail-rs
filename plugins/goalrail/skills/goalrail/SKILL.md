@@ -1,6 +1,6 @@
 ---
 name: goalrail
-description: Use Goalrail when the user wants to inspect, diagnose, or clean a Codex environment, skills, plugins, MCP configuration, marketplaces, or project trust, or explicitly manage the Goalrail CLI package or Goalrail Codex plugin. Route the intent to the narrowest supported workflow, interpret structured evidence, distinguish binary lifecycle from plugin lifecycle, and preserve explicit authority for system changes.
+description: Use Goalrail when the user wants to inspect, diagnose, or clean a Codex environment, skills, plugins, MCP configuration, marketplaces, or project trust, check for Goalrail updates, or explicitly manage the Goalrail CLI package or Goalrail Codex plugin. Route the intent to the narrowest supported workflow, interpret structured evidence, distinguish binary lifecycle from plugin lifecycle, and preserve explicit authority for system changes.
 ---
 
 # Goalrail
@@ -21,12 +21,17 @@ host.
    `references/install.md`, perform only its read-only preflight, and offer the
    native CLI installation as a separate approval-gated action.
 3. Resolve lifecycle intent before reading instructions:
+   - for an explicit update check, read `references/update-discovery.md` and
+     inspect both independently managed channels unless the user named one;
+   - for an ambiguous request to "update Goalrail", perform only the
+     observation flow in that reference, disclose the Codex host
+     reconciliation boundary, then ask which evidenced channel to change;
    - for the native `gr` CLI or Homebrew package, read
      `references/install.md`;
    - for the Goalrail Codex plugin or marketplace, read
      `references/plugin-lifecycle.md`;
-   - if the user says only "Goalrail", ask which target they mean instead of
-     inferring it.
+   - for any other lifecycle mutation where the user says only "Goalrail", ask
+     which target they mean instead of inferring it.
    Treat each state-changing command as a separate action requiring exact
    approval for its named target.
 4. Prefer `--json`. Interpret Goalrail verdicts and coverage before presenting

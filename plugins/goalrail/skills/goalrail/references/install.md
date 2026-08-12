@@ -13,9 +13,9 @@ macOS on Apple silicon with an existing Homebrew installation.
 uname -s
 uname -m
 command -v brew
-brew info heurema/tap/goalrail
+HOMEBREW_NO_AUTO_UPDATE=1 brew info heurema/tap/goalrail
 command -v gr || true
-brew list --versions goalrail || true
+HOMEBREW_NO_AUTO_UPDATE=1 brew list --versions goalrail || true
 ```
 
 Stop when the host is not macOS arm64, Homebrew is missing, the formula cannot
@@ -30,17 +30,22 @@ CLI package, and obtain approval for that action and machine before running it:
 
 ```sh
 brew install heurema/tap/goalrail
-brew upgrade heurema/tap/goalrail
+HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade heurema/tap/goalrail
 brew uninstall heurema/tap/goalrail
 ```
 
 Do not bundle approval for install, upgrade, or uninstall with the user's
 inspection request.
 
+Before proposing an upgrade, read `update-discovery.md`. `brew info` alone is
+not freshness evidence because it reads the local tap snapshot without
+refreshing it. Never return `NO_CHANGE` until the local tap commit matches the
+observed remote channel head.
+
 ## Verification after install or upgrade
 
 ```sh
-brew list --versions goalrail
+HOMEBREW_NO_AUTO_UPDATE=1 brew list --versions goalrail
 command -v gr
 gr --version
 gr inspect codex --json

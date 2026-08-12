@@ -88,15 +88,57 @@ installation, and `gr --version` matches the installed version.
 
 ### Update
 
-Read the installed and available formula versions first. If they are equal,
-return `NO_CHANGE` without mutation. Otherwise, state both versions and obtain
-authority before invoking once:
+Read the installed version and prove that the local Homebrew tap snapshot
+matches its observed remote `main` commit before reading the available formula.
+`brew info` does not refresh third-party tap metadata. If the commits differ,
+return `STALE_METADATA` with an unknown available version; never turn a stale
+comparison into `NO_CHANGE`.
+
+Refreshing metadata with `brew update` and upgrading the package are two
+separate state-changing actions. Each requires exact authority and its own
+readback. After a fresh comparison, if Homebrew reports no outdated Goalrail
+formula and the fresh formula version equals the latest public release, return
+`NO_CHANGE` without a package mutation. Otherwise, state the installed,
+formula, and public-release versions before selecting the update or lag verdict
+and obtaining authority for any mutation.
 
 ```bash
-brew upgrade heurema/tap/goalrail
+HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade heurema/tap/goalrail
 ```
 
 Verify the new Homebrew version, binary path, and `gr --version`.
+
+The same freshness rule applies to the Codex plugin channel: compare the local
+`goalrail` marketplace snapshot commit with the observed remote catalog head
+before reading its advertised immutable plugin tag. Record existing Codex
+config, optional receipt, snapshot, and cache evidence around the structured
+list commands. An isolated stale-snapshot canary found the current list commands
+left the snapshot and config unchanged. A separate live canary observed Codex
+reconcile the marketplace and cached plugin at new-task startup before the
+agent's first command, so opening a task or restarting Codex must not be
+presented as read-only discovery. The CLI package and plugin remain independent
+channels and cannot share mutation approval.
+
+This agent flow runs only on explicit update intent. Goalrail adds no background
+network request, daemon, cache, or `gr update` command. Codex host reconciliation
+is separate behavior and must be named as such.
+
+For direct macOS, Linux, or Windows release assets, the agent may compare the
+installed `gr --version` with the live non-draft GitHub Release only after
+requiring the exact supported target asset, checksum, and manifest. This is
+discovery, not lifecycle ownership. Linux and Windows have no selected package
+manager, installation receipt, or updater, so the agent reports
+`MANUAL_REINSTALL_REQUIRED` and never overwrites an ambiguously owned binary.
+
+The live non-draft GitHub Release is also the common version baseline for
+managed channels. A fresh Homebrew tap or marketplace that still advertises an
+older version is `CHANNEL_LAG` with `WAIT_FOR_CHANNEL` when that channel version
+is already installed. If the installation is older still, the channel reports
+its intermediate version as `UPDATE_AVAILABLE` with `channelLag: true` and
+discloses that waiting avoids a likely second update. A channel newer than the
+latest public release is `BLOCKED`. This preserves the release runbook's
+separately authorized publication and channel-promotion stages without hiding
+their temporary lag from the user.
 
 ### Uninstall
 
@@ -133,7 +175,12 @@ The acting agent returns one compact object with at least:
 }
 ```
 
-Terminal verdicts are:
+This receipt contract describes completed package lifecycle mutations. The
+observation-only update report uses the per-channel discovery verdicts defined
+by the Goalrail skill; do not collapse `CHANNEL_LAG`, `STALE_METADATA`, or
+`HOST_RECONCILED` into a mutation receipt.
+
+Terminal mutation verdicts are:
 
 - `INSTALLED`;
 - `UPDATED`;
@@ -183,7 +230,9 @@ Before calling the protocol implemented, verify at least:
 
 1. A clean supported host installs the expected version and returns
    `INSTALLED` with matching evidence.
-2. The same version already installed returns `NO_CHANGE` without mutation.
+2. The same version already installed returns `NO_CHANGE` without mutation
+   only after the fresh managed-channel version also equals the latest public
+   release.
 3. An available newer version updates once and returns `UPDATED`.
 4. An owned installation uninstalls without touching unrelated files and
    returns `UNINSTALLED`.

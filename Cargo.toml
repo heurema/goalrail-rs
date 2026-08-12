@@ -3,13 +3,13 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.3.6"
+version = "0.3.7"
 edition = "2024"
 license = "MIT"
 
 [workspace.dependencies]
 clap = "4"
-gr-inspect-codex = { version = "0.3.6", path = "crates/gr-inspect-codex" }
+gr-inspect-codex = { version = "0.3.7", path = "crates/gr-inspect-codex" }
 gr-skill-assessment = { path = "crates/gr-skill-assessment" }
 memchr = "2"
 serde = { version = "1", default-features = false }

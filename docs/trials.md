@@ -191,6 +191,61 @@ discovery, record, truncation, or scan-count errors can produce the same state.
 The finding code and message now name only the proven partial evidence coverage
 and point the agent to the structured coverage counters for the cause.
 
+## codex-plugin-host-reconciliation
+
+- Owner: [decision 0011](decisions/0011-co-locate-goalrail-codex-plugin.md)
+- Added: `2026-08-12`
+- Revisit: after three real plugin update checks, an explicit upstream Codex
+  lifecycle contract, or by `2026-09-12`, whichever comes first.
+- Current decision: `MODIFY`.
+
+The first forward canary started with Goalrail plugin `0.3.1` and a stale
+marketplace snapshot. Before the new agent's first command, Codex refreshed the
+snapshot to the observed remote `main` commit and replaced the installed cache
+with plugin `0.3.6`. Filesystem and session timestamps put the host change 36
+seconds before the agent started, and the agent rollout contained no
+`marketplace upgrade`, `plugin add`, `brew update`, or `brew upgrade` command.
+
+This falsified the proposed end-to-end read-only plugin-discovery claim. The
+trial now separates task startup from commands issued after the agent begins.
+A second isolated canary put two profiles on a deliberately stale snapshot and
+ran `marketplace list` in one and `plugin list` in the other. Neither command
+changed the snapshot commit or config. The flow therefore keeps the convenient
+structured lists, records direct state around them to catch future drift, warns
+that task startup or restart can reconcile before the skill runs, and keeps
+manual refresh and application separately approved. The isolated registration
+also showed that CLI-created snapshots may omit both the Desktop-owned receipt
+and config `last_revision`, so their absence is not treated as a false block;
+when present, both must match the snapshot. Record another automatic
+reconciliation, an observation command that mutates, a false `NO_CHANGE`, a
+false `BLOCKED`, stale cache ambiguity, or an upstream lifecycle-contract
+change.
+
+The final independent aggregate review ran on the verified
+`claude-fable-5` model after earlier unsuccessful attempts, including one that
+returned only an unusable tool request. It found five contract gaps: reliance
+on optional Homebrew tap JSON fields, no explicit installed-versus-advertised
+plugin verdict mapping, an
+over-broad `NO_CHANGE` sentence in decision 0002, update-only instructions
+being referenced by install and removal preflight, and `CHANNEL_LAG`
+suppressing an intermediate update already available through the same managed
+channel. Current Homebrew did expose `HEAD` and `branch`, but the correction
+still moved their authority to Git and treats the JSON fields as optional
+cross-checks. The other corrections make overall `NO_CHANGE` require per-channel
+`NO_CHANGE`, map every installed/catalog version relation, scope lifecycle
+preflight independently from update discovery, and expose an intermediate
+update with `channelLag: true` instead of hiding it. Contract tests pin these
+rules in both the bundled skill and public install document. Critique receipt:
+requested and actual model `claude-fable-5`, status `success`, no fallback,
+exposed cost `$2.156660`.
+
+The subsequent self-review found two additional specification drifts. The
+public Homebrew summary now states all three equalities required for
+`NO_CHANGE`, and the installed-plugin source contract accepts only Codex's two
+observed equivalent spellings, `plugins/goalrail` and `./plugins/goalrail`,
+while rejecting every other path. The older lifecycle acceptance fixture and
+receipt terminology were also aligned with the new observation verdicts.
+
 ## cargo-pup-import-policy
 
 - Owner: [decision 0007](decisions/0007-reject-cargo-pup-dependency-gate.md)

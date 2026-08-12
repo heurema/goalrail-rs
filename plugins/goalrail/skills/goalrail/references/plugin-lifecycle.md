@@ -3,17 +3,31 @@
 These instructions manage the Codex plugin and marketplace only. They never
 install, upgrade, or uninstall the native `gr` CLI or its Homebrew package.
 
-## Read-only preflight
+## Observation preflight
 
 ```sh
 codex plugin --help
 codex plugin marketplace list --json
-codex plugin list --json
+codex plugin list --marketplace goalrail --json
 ```
 
-Confirm the exact marketplace source and whether `goalrail@goalrail` is already
-installed before proposing a change. The repository marketplace file alone
-does not register the marketplace or install the plugin in Codex.
+Record the active Codex profile's existing config, Git snapshot, optional
+marketplace receipt, and plugin cache before and after the JSON list commands,
+using the pre/post evidence defined in the Codex plugin channel of
+`update-discovery.md`. Confirm the exact marketplace source and whether
+`goalrail@goalrail` is installed before proposing a change. For update intent,
+follow the full update-discovery flow; install, registration, and removal
+preflight does not apply its public-release comparison. The repository
+marketplace file alone does not register the marketplace or install the plugin
+in Codex.
+
+Do not describe starting a task or restarting Codex as read-only lifecycle
+operations. A live canary observed the Codex host reconcile the Goalrail
+marketplace and plugin before a newly started agent issued its first command.
+An isolated stale-snapshot canary found that the current JSON list commands did
+not change the snapshot or config, so they remain observation surfaces with
+pre/post evidence. Current public Codex documentation does not define either
+behavior as a permanent lifecycle contract.
 
 ## Activate the remote trial
 
@@ -28,8 +42,8 @@ by the marketplace entry to the immutable shared Goalrail `v<version>` tag.
    codex plugin marketplace add heurema/goalrail-rs --ref main --json
    ```
 
-   Verify with `codex plugin marketplace list --json` and stop. Registration
-   does not authorize plugin installation.
+   Verify the command result, config, and snapshot, plus the receipt when Codex
+   created one, then stop. Registration does not authorize plugin installation.
 
 2. After separate approval, install the plugin:
 
@@ -37,8 +51,9 @@ by the marketplace entry to the immutable shared Goalrail `v<version>` tag.
    codex plugin add goalrail@goalrail --json
    ```
 
-   Verify with `codex plugin list --json`. Restart Codex if the current client
-   does not load a newly installed skill dynamically.
+   Verify with the command result, direct cache evidence, and the JSON output of
+   `codex plugin list`. Before asking the user to restart Codex, explain that a
+   reload may also reconcile configured Git marketplaces and plugins.
 
 The marketplace entry uses a remote `git-subdir` source and must target an
 immutable plugin tag, including during the first remote canary. Do not replace
@@ -47,11 +62,19 @@ it with a local checkout path or moving payload ref.
 ## Refresh or removal
 
 The current Codex CLI has no `codex plugin update` command. Never substitute a
-Homebrew upgrade. First record the installed version from
-`codex plugin list --json` and inspect the configured marketplace source.
+Homebrew upgrade. First record the installed version and configured marketplace
+source from the direct evidence defined in `update-discovery.md`.
 
-Refreshing the catalog and applying the plugin are two separate state-changing
-steps. Obtain approval for only the next step:
+For update discovery, follow `update-discovery.md`. Compare the configured
+marketplace snapshot commit with the observed remote `main` commit before
+reading its advertised plugin version. A changed commit is `STALE_METADATA`,
+not evidence for either `NO_CHANGE` or an available version.
+
+The manual refresh and application commands remain supported, but they are not
+the only lifecycle path observed in Codex: the host may reconcile at task
+startup. When the user chooses the manual path, refreshing the catalog and
+applying the plugin are two separate state-changing steps. Obtain approval for
+only the next step:
 
 ```sh
 codex plugin marketplace upgrade goalrail --json
@@ -59,19 +82,20 @@ codex plugin add goalrail@goalrail --json
 ```
 
 After the marketplace refresh and before asking for `plugin add` authority,
-read the marketplace root from `codex plugin marketplace list --json`, then
-inspect its `.agents/plugins/marketplace.json`. The `goalrail` entry must
-advertise exactly:
+read the marketplace root from the refresh result and verify it against direct
+config and any receipt evidence. Then inspect its
+`.agents/plugins/marketplace.json`. The `goalrail` entry must advertise exactly:
 
 - URL `https://github.com/heurema/goalrail-rs.git`;
 - path `./plugins/goalrail`;
 - ref `v<version>`, matching both the plugin and native CLI release version.
 
-Resolve that exact tag with `git ls-remote` and present the URL, path, tag,
-resolved commit SHA, previous installed version, and advertised version to the
-operator. Approval applies only to that evidence. A moving ref, unresolved or
-ambiguous tag, version mismatch, unexpected source/path, or evidence change
-before the mutation is `BLOCKED`.
+Resolve that exact tag with `git ls-remote`, including the peeled `^{}` ref for
+an annotated tag, and present the URL, path, tag, resolved commit SHA, previous
+installed version, and advertised version to the operator. Never substitute an
+annotated tag-object SHA for its payload commit. Approval applies only to that
+evidence. A moving ref, unresolved or ambiguous tag, version mismatch,
+unexpected source/path, or evidence change before the mutation is `BLOCKED`.
 
 The current `codex plugin add` replaces an already installed plugin with the
 version exposed by the refreshed marketplace; it does not require removing the
@@ -95,10 +119,16 @@ codex plugin remove goalrail@goalrail --json
 codex plugin marketplace remove goalrail --json
 ```
 
-After each approved change, read back the corresponding JSON list. Never claim
-that a marketplace refresh alone changed an installed plugin unless the
-installed plugin version or source observed by `codex plugin list --json`
-confirms it.
+After each approved change, read back the corresponding JSON list. Never
+attribute a plugin change to the agent merely because a later readback shows a
+new version. Compare pre-command direct evidence with the command result and
+post-command readback. If Codex changed the plugin outside the approved manual
+action, report `HOST_RECONCILED` and the observed evidence instead.
+
+After a verified plugin install or replacement, explicitly tell the user that
+the current task may still be running the previous skill instructions. Offer a
+new task or client restart as a reload action, but warn that the Codex host may
+also reconcile configured Git marketplaces and plugins during that action.
 
 ## Native CLI boundary
 

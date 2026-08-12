@@ -1,6 +1,6 @@
 # Decision 0011: Co-locate the Goalrail Codex plugin
 
-- Status: accepted for remote trial
+- Status: accepted for remote trial; host reconciliation behavior under trial
 - Date: 2026-08-11
 - Owner: project owner
 
@@ -29,6 +29,20 @@ or the Codex plugin own bootstrap of the other component?
   installed cache follows `main` automatically.
 - In the current Codex CLI, `marketplace upgrade` refreshes a moving Git
   snapshot and `plugin add` applies its plugin version in place.
+- A 2026-08-12 live canary on Codex CLI `0.147.0-alpha.6.5` observed the host
+  refresh the Git marketplace and replace the cached Goalrail plugin before a
+  newly started agent issued its first command. The agent rollout contained no
+  marketplace or plugin mutation command. This is observed host behavior, not
+  a documented stable Codex lifecycle guarantee.
+- An isolated canary on the same CLI put two separate profiles on a deliberately
+  stale Goalrail snapshot, then ran `marketplace list` in one and `plugin list`
+  in the other. Both retained the stale snapshot commit and byte-identical
+  config. The list commands remain observation surfaces with pre/post evidence;
+  this version-scoped result is not generalized into an upstream guarantee.
+- Fresh CLI marketplace registration created the Git snapshot and config source
+  but no `.codex-marketplace-install.json` or config `last_revision`; the live
+  Desktop-managed profile later had both. Update discovery therefore validates
+  these fields when present and does not falsely require host-only metadata.
 - A canary confirmed that changing a marketplace's own pinned ref is not
   atomic: Codex requires removing the old registration first, and the installed
   plugin is no longer listed while that marketplace is absent.
@@ -82,6 +96,22 @@ capability detection before invocation. The shared version is a release-train
 identity, not proof that a capability exists in an installed binary; runtime
 capability detection remains required.
 
+[TRIAL: codex-plugin-host-reconciliation] Update observation records existing
+Codex config, optional receipt, snapshot, and plugin cache around the structured
+list commands, then compares the snapshot commit with the observed remote
+`main` commit. When they differ, the only honest available-version state is
+unknown with `STALE_METADATA`; the cached marketplace version cannot justify
+`NO_CHANGE`. Starting a task or restarting Codex is not promised as read-only
+because the host can reconcile before the skill runs. Manual marketplace
+refresh and plugin application remain two separately approved changes. Update
+discovery is explicit-intent-only and does not run during ordinary Goalrail
+inspection.
+
+Because the moving catalog can be consumed by host reconciliation, `main` must
+never advertise a missing payload tag. The release runbook preserves this
+ordering: create and verify the immutable tag, publish the release, and only
+then promote that exact commit to `main`.
+
 Do not bundle the native `gr` binary in this trial. The documented Homebrew
 package remains the single binary distribution and update path. The skill may
 offer that path after read-only preflight and exact operator approval.
@@ -97,9 +127,11 @@ must not run automatically during package installation.
 
 ## Rejected objections
 
-- Co-location does not make an installed plugin update automatically. The
-  marketplace still requires an explicit refresh followed by `plugin add`,
-  with the installed version read back before reporting an update.
+- Co-location alone does not define installed-plugin update semantics. Manual
+  `marketplace upgrade` followed by `plugin add` remains a supported explicit
+  path, while the current host has also been observed reconciling the catalog
+  and installed cache at task startup. Neither observation is generalized into
+  an undocumented permanent Codex guarantee.
 - A repository marketplace file is packaging metadata, not activation. Users
   register the remote Git marketplace and install the plugin explicitly.
 - Pinning the marketplace registration itself to each release tag was rejected

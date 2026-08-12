@@ -214,6 +214,13 @@ optional receipt, and Goalrail cache inventory. Compare them afterward. Any
 unexpected change is `HOST_RECONCILED`; report the before/after evidence and
 stop instead of silently retrying.
 
+A later live update on Codex CLI `0.147.0` observed
+`codex plugin marketplace upgrade goalrail --json` refresh the snapshot and
+replace the installed Goalrail cache during the same command. Treat marketplace
+upgrade as a potentially combined catalog-and-plugin reconciliation, not as a
+metadata-only operation. This is version-scoped evidence rather than a stable
+upstream contract.
+
 Resolve `<codex-home>` from the active Codex profile without creating or
 changing it. Read only `[marketplaces.goalrail]` and
 `[plugins."goalrail@goalrail"]` from `<codex-home>/config.toml` with a TOML-aware
@@ -245,6 +252,21 @@ git ls-remote --exit-code https://github.com/heurema/goalrail-rs.git refs/heads/
 
 If the commits differ, report `STALE_METADATA`, leave `available` unknown, and
 stop this channel. Do not call the cached marketplace's plugin version latest.
+Before proposing reconciliation, resolve the directory containing the loaded
+Goalrail `SKILL.md` and run its bundled diagnostic against the exact observed
+remote commit without changing the local snapshot:
+
+```sh
+<goalrail-skill-root>/scripts/plugin-update-target.sh \
+  <remote-commit> <latestRelease>
+```
+
+The diagnostic reads the exact remote marketplace, plugin manifest, required
+skill tree, Git blob inventory, and peeled immutable tag. It requires the tag
+payload commit to equal `<remote-commit>` and returns `TARGET_VERIFIED` with a
+`remoteCandidate` and payload inventory. Preserve any `BLOCKED` finding instead
+of reconstructing or weakening the probe. Report `remoteCandidate`, not
+`available`, while the configured snapshot remains stale.
 
 Only when the commits match, inspect
 `<marketplace-root>/.agents/plugins/marketplace.json` and validate the exact
@@ -275,19 +297,43 @@ a higher installed version is `BLOCKED`. When the catalog trails
 Never let an exposed catalog version satisfy overall `NO_CHANGE` while the
 proved installed version is lower.
 
-For a deliberate manual update, metadata refresh and plugin application remain
-two separately approved actions:
+For a deliberate manual update, treat marketplace upgrade as one
+approval-gated host reconciliation action that may change both the catalog
+snapshot and the installed Goalrail plugin. Before asking, present the exact
+remote commit, validated `remoteCandidate` version, immutable payload tag and
+commit, and the installed version. The approval must name both possible local
+changes. Record direct config, snapshot, receipt, and cache evidence immediately
+before running. Immediately re-read remote `main` with the documented
+`git ls-remote` command and require it to equal the approved commit. A mismatch
+is `STALE_METADATA`; do not run the mutation. This reduces but cannot eliminate
+the moving-ref race because Codex does not expose a commit-bound marketplace
+upgrade. Post-command exact snapshot and cache verification remains mandatory.
+Then run:
 
 ```sh
 codex plugin marketplace upgrade goalrail --json
+```
+
+Read config, snapshot, receipt, and cache directly after the command and before
+calling either list command. When the cache version changed, rerun the same
+diagnostic with the exact installed cache root as its third argument. Only
+`TARGET_VERIFIED` with `cacheVerified: true` proves that every installed file
+matches the approved Git blob inventory. If the snapshot moved to the approved
+commit and this proof passes, report `UPDATED`; do not run `plugin add`. If the
+snapshot moved exactly but the installed plugin is unchanged, report that
+narrower result, repeat structured discovery, and only then request separate
+approval for:
+
+```sh
 codex plugin add goalrail@goalrail --json
 ```
 
-After either command, perform structured readback and revalidate the immutable
-payload evidence. The current task may still have the previous skill
-instructions loaded. Before asking the user to open a new task or restart the
-client, explain that this reload may also trigger Codex host reconciliation; it
-is not a read-only verification step.
+An unexpected version, source, path, commit, cache change, or pre-command drift
+is `HOST_RECONCILED` or `BLOCKED`; stop instead of retrying. The current task may
+still have the previous skill instructions loaded after either update path.
+Before asking the user to open a new task or restart the client, explain that
+this reload may also trigger Codex host reconciliation; it is not a read-only
+verification step.
 
 ## Notifications
 

@@ -117,20 +117,21 @@ registration does not authorize plugin installation. These commands are not
 run by `mise run test:goalrail-plugin` or `mise run ci`.
 
 The marketplace entry uses the remote `git-subdir` source and pins
-`plugins/goalrail` to the immutable shared release tag `v0.3.8`. The catalog can
-refresh from `main`, while the payload remains immutable. A live canary also
-observed the current Codex host reconcile the catalog and installed cache at
-task startup, so starting a task is not documented here as a read-only update
-check. CLI crates and the plugin share one release version. A behavior change
-in either advances the whole Goalrail release and the entry to the matching
-`v<version>` tag; offline validation rejects drift. The release runbook creates
-and publishes that tag before promoting the catalog commit to `main`.
+`plugins/goalrail` to the immutable shared release tag `v0.3.9`. The catalog can
+refresh from `main`, while the payload remains immutable. Live canaries observed
+the current Codex host reconcile the catalog and installed cache both at task
+startup and during `marketplace upgrade`, so neither operation is documented as
+a metadata-only update check. CLI crates and the plugin share one release
+version. A behavior change in either advances the whole Goalrail release and the
+entry to the matching `v<version>` tag; offline validation rejects drift. The
+release runbook creates and publishes that tag before promoting the catalog
+commit to `main`.
 
 Run `mise run test:goalrail-plugin` for offline package validation. After the
 exact ref has been pushed, run the real Git-backed smoke test with:
 
 ```bash
-mise run smoke:goalrail-plugin-remote -- main 0.3.8
+mise run smoke:goalrail-plugin-remote -- main 0.3.9
 ```
 
 The smoke test uses an isolated temporary `CODEX_HOME`; it does not register or

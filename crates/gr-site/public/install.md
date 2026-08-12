@@ -136,15 +136,27 @@ commit with `heurema/goalrail-rs` `main`, rejects tracked local changes, and
 verifies source `heurema/goalrail-rs`, ref `main`, and any available receipt or
 config revision. A stale or unverified snapshot cannot produce `NO_CHANGE`.
 
-After separate approval, the manual path refreshes only the Goalrail
-marketplace:
+Before proposing a manual refresh, the agent uses the bundled
+`scripts/plugin-update-target.sh` diagnostic to validate the Goalrail entry,
+manifest, required skill tree, Git blob inventory, immutable tag, and peeled
+payload commit from the exact observed remote `main` commit. The approval names
+the target catalog commit and plugin version and explains that current Codex may
+update both the marketplace snapshot and the installed Goalrail plugin through
+this command. Immediately before running it, the agent requires a fresh
+`git ls-remote` readback of `main` to equal the approved commit and discloses
+that Codex does not atomically bind marketplace upgrade to that commit:
 
 ```sh
 codex plugin marketplace upgrade goalrail --json
 ```
 
-The agent then validates the advertised immutable Goalrail tag. Applying an
-available plugin update is another separately approved action:
+The agent reads config, snapshot, receipt, and cache directly after the command
+before running a list command. If the plugin changed to the approved payload,
+it reruns the bundled diagnostic with the exact cache root and requires every
+installed file to match the approved Git blob inventory. The update is complete
+and `plugin add` must not be run only after that proof. When the snapshot updated
+exactly and the installed plugin remained unchanged, the agent may ask
+separately to apply the already validated payload:
 
 ```sh
 codex plugin add goalrail@goalrail --json

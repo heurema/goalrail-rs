@@ -13,6 +13,7 @@ install="$plugin_root/skills/goalrail/references/install.md"
 plugin_lifecycle="$plugin_root/skills/goalrail/references/plugin-lifecycle.md"
 update_discovery="$plugin_root/skills/goalrail/references/update-discovery.md"
 homebrew_state="$plugin_root/skills/goalrail/scripts/homebrew-update-state.sh"
+plugin_target="$plugin_root/skills/goalrail/scripts/plugin-update-target.sh"
 public_install="$repo_root/crates/gr-site/public/install.md"
 remote_smoke="$repo_root/scripts/smoke-goalrail-plugin-remote.sh"
 
@@ -28,14 +29,35 @@ command -v cargo >/dev/null 2>&1 || {
 
 plugin_version=$(jq -er '.version' "$manifest")
 release_ref=v$plugin_version
-workspace_versions=$(cargo metadata --locked --offline --no-deps --format-version 1 \
-  --manifest-path "$repo_root/Cargo.toml" |
+workspace_metadata=$(cargo metadata --locked --offline --no-deps --format-version 1 \
+  --manifest-path "$repo_root/Cargo.toml")
+workspace_versions=$(printf '%s\n' "$workspace_metadata" |
   jq -r '.packages[].version' | sort -u)
 
 test "$workspace_versions" = "$plugin_version" || {
   echo "Goalrail workspace and plugin versions must match: workspace=$workspace_versions plugin=$plugin_version" >&2
   exit 1
 }
+
+dependency_contract='(
+  [.packages[] | select(.name == "gr") | .dependencies[]
+    | select(.name == "gr-inspect-codex") | .req]
+  == [("^" + $version)]
+)'
+printf '%s\n' "$workspace_metadata" |
+  jq -e --arg version "$plugin_version" "$dependency_contract" >/dev/null || {
+  echo "Goalrail CLI dependency requirement must match the shared version" >&2
+  exit 1
+}
+stale_requirement=$(printf '%s\n' "$workspace_metadata" | jq '
+  (.packages[] | select(.name == "gr") | .dependencies[]
+    | select(.name == "gr-inspect-codex") | .req) = "^0.3.8"
+')
+if printf '%s\n' "$stale_requirement" |
+    jq -e --arg version "$plugin_version" "$dependency_contract" >/dev/null; then
+  echo "Goalrail shared-version gate accepted a stale dependency requirement" >&2
+  exit 1
+fi
 
 jq -e --arg ref "$release_ref" '
   .name == "goalrail"
@@ -61,7 +83,7 @@ jq -e --arg version "$plugin_version" '
   and .interface.category == "Developer Tools"
 ' "$manifest" >/dev/null
 
-for file in "$skill" "$index" "$install" "$plugin_lifecycle" "$update_discovery" "$homebrew_state" "$public_install"; do
+for file in "$skill" "$index" "$install" "$plugin_lifecycle" "$update_discovery" "$homebrew_state" "$plugin_target" "$public_install"; do
   test -s "$file" || {
     echo "goalrail plugin file is missing or empty: $file" >&2
     exit 1
@@ -70,6 +92,11 @@ done
 
 test -x "$homebrew_state" || {
   echo "Goalrail Homebrew update-state helper is not executable: $homebrew_state" >&2
+  exit 1
+}
+
+test -x "$plugin_target" || {
+  echo "Goalrail plugin update-target helper is not executable: $plugin_target" >&2
   exit 1
 }
 
@@ -154,7 +181,15 @@ grep -F '`nextAction: MANUAL_REINSTALL_REQUIRED`' "$update_discovery" >/dev/null
 grep -F 'DIRECT_RELEASE_UNMANAGED' "$update_discovery" >/dev/null
 grep -F 'Do not download an archive, overwrite the' "$update_discovery" >/dev/null
 grep -F 'codex plugin marketplace upgrade goalrail --json' "$update_discovery" >/dev/null
-grep -F 'two separately approved actions' "$update_discovery" >/dev/null
+grep -F 'potentially combined catalog-and-plugin reconciliation' "$update_discovery" >/dev/null
+grep -F 'scripts/plugin-update-target.sh' "$update_discovery" >/dev/null
+grep -F 'Report `remoteCandidate`, not' "$update_discovery" >/dev/null
+grep -F 'skill tree, Git blob inventory' "$update_discovery" >/dev/null
+grep -F '`cacheVerified: true`' "$update_discovery" >/dev/null
+grep -F 'not run `plugin add`' "$update_discovery" >/dev/null
+grep -F 'calling either list command' "$update_discovery" >/dev/null
+grep -F 'cannot eliminate' "$update_discovery" >/dev/null
+grep -F 'Post-command exact snapshot and cache verification remains mandatory' "$update_discovery" >/dev/null
 grep -F 'open a new task or restart the' "$update_discovery" >/dev/null
 grep -F 'Goalrail skill and CLI perform no background update check' "$update_discovery" >/dev/null
 grep -F 'read `update-discovery.md`' "$install" >/dev/null
@@ -162,10 +197,28 @@ grep -F 'follow `update-discovery.md`' "$plugin_lifecycle" >/dev/null
 grep -F 'pre/post evidence' "$plugin_lifecycle" >/dev/null
 grep -F 'For update intent,' "$plugin_lifecycle" >/dev/null
 grep -F 'codex plugin list --marketplace goalrail --json' "$plugin_lifecycle" >/dev/null
+grep -F 'potentially combined state-changing action' "$plugin_lifecycle" >/dev/null
+grep -F 'do not run `plugin add`' "$plugin_lifecycle" >/dev/null
+grep -F 'scripts/plugin-update-target.sh' "$plugin_lifecycle" >/dev/null
+grep -F 'cannot atomically bind its moving ref' "$plugin_lifecycle" >/dev/null
 grep -F 'git -C <tap-root> symbolic-ref --short HEAD' "$public_install" >/dev/null
 grep -F 'git -C <tap-root> rev-parse HEAD' "$public_install" >/dev/null
 grep -F '`channelLag: true`' "$public_install" >/dev/null
 grep -F 'fresh formula version equals both the installed version and the latest' "$public_install" >/dev/null
+grep -F 'update both the marketplace snapshot and' "$public_install" >/dev/null
+grep -F 'update is complete' "$public_install" >/dev/null
+grep -F '`plugin add` must not be run only after that proof' "$public_install" >/dev/null
+grep -F 'scripts/plugin-update-target.sh' "$public_install" >/dev/null
+grep -F 'does not atomically bind marketplace upgrade' "$public_install" >/dev/null
+
+for file in "$update_discovery" "$plugin_lifecycle" "$public_install"; do
+  if grep -F 'refresh and plugin application remain two separately approved' "$file" >/dev/null \
+      || grep -F 'refreshes only the Goalrail marketplace' "$file" >/dev/null \
+      || grep -F 'Applying an available plugin update is another separately approved action' "$file" >/dev/null; then
+    echo "Goalrail lifecycle docs still claim marketplace upgrade is metadata-only: $file" >&2
+    exit 1
+  fi
+done
 
 if grep -F 'Discovery is read-only.' "$update_discovery" >/dev/null; then
   echo "Goalrail plugin update discovery must not promise an end-to-end read-only Codex lifecycle" >&2

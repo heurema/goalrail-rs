@@ -18,6 +18,7 @@ cargo test --workspace --locked
 ./scripts/test-assessment-boundary.sh
 ./scripts/test-goalrail-plugin.sh
 ./scripts/test-homebrew-update-state.sh
+./scripts/test-plugin-update-target.sh
 ./scripts/test-release-tooling.sh
 ./scripts/test-homebrew-promotion.sh
 
@@ -38,6 +39,8 @@ shellcheck \
   scripts/test-release-tooling.sh \
   scripts/test-homebrew-promotion.sh \
   scripts/test-homebrew-update-state.sh \
-  plugins/goalrail/skills/goalrail/scripts/homebrew-update-state.sh
+  scripts/test-plugin-update-target.sh \
+  plugins/goalrail/skills/goalrail/scripts/homebrew-update-state.sh \
+  plugins/goalrail/skills/goalrail/scripts/plugin-update-target.sh
 
 echo "RELEASE_CANDIDATE_SOURCE_OK"

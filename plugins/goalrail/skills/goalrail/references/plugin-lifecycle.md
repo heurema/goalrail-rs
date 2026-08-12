@@ -70,32 +70,48 @@ marketplace snapshot commit with the observed remote `main` commit before
 reading its advertised plugin version. A changed commit is `STALE_METADATA`,
 not evidence for either `NO_CHANGE` or an available version.
 
-The manual refresh and application commands remain supported, but they are not
-the only lifecycle path observed in Codex: the host may reconcile at task
-startup. When the user chooses the manual path, refreshing the catalog and
-applying the plugin are two separate state-changing steps. Obtain approval for
-only the next step:
+The host may reconcile at task startup. A live Codex CLI `0.147.0` update also
+showed that marketplace upgrade can refresh the catalog and replace an enabled
+installed Goalrail plugin during the same command. Treat the manual refresh as
+a potentially combined state-changing action rather than promising a
+metadata-only step.
+
+Before asking for authority, use the exact remote-commit procedure in
+`update-discovery.md` to validate the remote catalog entry, immutable tag,
+payload commit, previous installed version, and target version. Obtain approval
+for one command and explicitly state that it may change both the Goalrail
+marketplace snapshot and installed plugin. Immediately before the command,
+re-read remote `main` and require it to equal the approved commit. Stop on a
+mismatch; the command cannot atomically bind its moving ref to that commit:
 
 ```sh
 codex plugin marketplace upgrade goalrail --json
-codex plugin add goalrail@goalrail --json
 ```
 
-After the marketplace refresh and before asking for `plugin add` authority,
-read the marketplace root from the refresh result and verify it against direct
-config and any receipt evidence. Then inspect its
-`.agents/plugins/marketplace.json`. The `goalrail` entry must advertise exactly:
+Read the marketplace root from the command result and inspect direct config,
+receipt, snapshot, and cache evidence before calling a list command. Then
+inspect `.agents/plugins/marketplace.json`. The `goalrail` entry must advertise
+exactly:
 
 - URL `https://github.com/heurema/goalrail-rs.git`;
 - path `./plugins/goalrail`;
 - ref `v<version>`, matching both the plugin and native CLI release version.
 
 Resolve that exact tag with `git ls-remote`, including the peeled `^{}` ref for
-an annotated tag, and present the URL, path, tag, resolved commit SHA, previous
-installed version, and advertised version to the operator. Never substitute an
-annotated tag-object SHA for its payload commit. Approval applies only to that
-evidence. A moving ref, unresolved or ambiguous tag, version mismatch,
-unexpected source/path, or evidence change before the mutation is `BLOCKED`.
+an annotated tag. Never substitute an annotated tag-object SHA for its payload
+commit. Approval applies only to the presented evidence. A moving ref,
+unresolved or ambiguous tag, version mismatch, unexpected source/path, or
+evidence change before the mutation is `BLOCKED`.
+
+If the installed cache changed, run `scripts/plugin-update-target.sh` again with
+the exact installed cache root and require `cacheVerified: true`. Then report
+`UPDATED` and do not run `plugin add`. If only the snapshot changed and the
+installed plugin remained byte-for-byte unchanged, repeat structured discovery
+and ask separately before running:
+
+```sh
+codex plugin add goalrail@goalrail --json
+```
 
 The current `codex plugin add` replaces an already installed plugin with the
 version exposed by the refreshed marketplace; it does not require removing the
@@ -121,9 +137,10 @@ codex plugin marketplace remove goalrail --json
 
 After each approved change, read back the corresponding JSON list. Never
 attribute a plugin change to the agent merely because a later readback shows a
-new version. Compare pre-command direct evidence with the command result and
-post-command readback. If Codex changed the plugin outside the approved manual
-action, report `HOST_RECONCILED` and the observed evidence instead.
+new version. Compare pre-command direct evidence with the command result,
+immediate direct readback, and later structured readback. If Codex changed the
+plugin outside the approved target or command, report `HOST_RECONCILED` and the
+observed evidence instead.
 
 After a verified plugin install or replacement, explicitly tell the user that
 the current task may still be running the previous skill instructions. Offer a

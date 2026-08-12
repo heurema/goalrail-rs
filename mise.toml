@@ -37,6 +37,7 @@ run = [
   { task = "test:assessment-boundary" },
   { task = "test:goalrail-plugin" },
   { task = "test:homebrew-update-state" },
+  { task = "test:plugin-update-target" },
   { task = "release:test" },
   { task = "coverage" },
   { task = "test:verification-receipts" },
@@ -107,6 +108,10 @@ run = "./scripts/test-goalrail-plugin.sh"
 [tasks."test:homebrew-update-state"]
 description = "Sabotage-test the bundled Homebrew update-state normalizer"
 run = "./scripts/test-homebrew-update-state.sh"
+
+[tasks."test:plugin-update-target"]
+description = "Sabotage-test exact Goalrail plugin update targets and cache payloads"
+run = "./scripts/test-plugin-update-target.sh"
 
 [tasks."smoke:goalrail-plugin-remote"]
 description = "Install the Goalrail plugin from a remote Git ref in an isolated Codex profile"

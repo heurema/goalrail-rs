@@ -102,10 +102,14 @@ list commands, then compares the snapshot commit with the observed remote
 `main` commit. When they differ, the only honest available-version state is
 unknown with `STALE_METADATA`; the cached marketplace version cannot justify
 `NO_CHANGE`. Starting a task or restarting Codex is not promised as read-only
-because the host can reconcile before the skill runs. Manual marketplace
-refresh and plugin application remain two separately approved changes. Update
-discovery is explicit-intent-only and does not run during ordinary Goalrail
-inspection.
+because the host can reconcile before the skill runs. A later Codex CLI
+`0.147.0` canary showed that `marketplace upgrade` can also replace the enabled
+installed plugin during the same command. The flow therefore validates the
+remote catalog and immutable payload before approval and treats marketplace
+upgrade as a potentially combined catalog-and-plugin action. `plugin add`
+requires a later separate approval only when immediate direct readback proves
+that the installed plugin remained unchanged. Update discovery is
+explicit-intent-only and does not run during ordinary Goalrail inspection.
 
 Because the moving catalog can be consumed by host reconciliation, `main` must
 never advertise a missing payload tag. The release runbook preserves this
@@ -127,17 +131,19 @@ must not run automatically during package installation.
 
 ## Rejected objections
 
-- Co-location alone does not define installed-plugin update semantics. Manual
-  `marketplace upgrade` followed by `plugin add` remains a supported explicit
-  path, while the current host has also been observed reconciling the catalog
-  and installed cache at task startup. Neither observation is generalized into
-  an undocumented permanent Codex guarantee.
+- Co-location alone does not define installed-plugin update semantics. Current
+  Codex has reconciled the installed cache both at task startup and during
+  `marketplace upgrade`. The skill treats the latter as a possible combined
+  action and offers `plugin add` only after direct evidence shows that refresh
+  left the plugin unchanged; neither observation is generalized into a stable
+  upstream guarantee.
 - A repository marketplace file is packaging metadata, not activation. Users
   register the remote Git marketplace and install the plugin explicitly.
 - Pinning the marketplace registration itself to each release tag was rejected
   after a canary showed that changing refs requires temporarily removing the
   marketplace. A moving catalog plus an immutable remote plugin payload keeps
-  the update path additive until `plugin add` applies the new version.
+  the update target verifiable even when Codex applies it during marketplace
+  reconciliation.
 - Homebrew post-install is the wrong plugin owner: it would mutate another
   product's user configuration, cannot choose the intended Codex profile, and
   makes independent removal and rollback ambiguous.

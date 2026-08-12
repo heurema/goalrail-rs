@@ -117,7 +117,12 @@ left the snapshot and config unchanged. A separate live canary observed Codex
 reconcile the marketplace and cached plugin at new-task startup before the
 agent's first command, so opening a task or restarting Codex must not be
 presented as read-only discovery. The CLI package and plugin remain independent
-channels and cannot share mutation approval.
+channels and cannot share mutation approval. A Codex CLI `0.147.0` canary also
+showed that `marketplace upgrade` may replace an enabled installed plugin during
+the same command. Before requesting that action, validate the exact remote
+catalog commit and immutable payload and disclose both possible local changes;
+offer a separate `plugin add` only if immediate readback proves the plugin did
+not change.
 
 This agent flow runs only on explicit update intent. Goalrail adds no background
 network request, daemon, cache, or `gr update` command. Codex host reconciliation

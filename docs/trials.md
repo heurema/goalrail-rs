@@ -246,6 +246,42 @@ observed equivalent spellings, `plugins/goalrail` and `./plugins/goalrail`,
 while rejecting every other path. The older lifecycle acceptance fixture and
 receipt terminology were also aligned with the new observation verdicts.
 
+The third real update check exercised the released `v0.3.8` flow on Codex CLI
+`0.147.0`. It started with snapshot
+`8a3aebd8bb794608ff87ed7be6aca716622c3e47` and installed plugin `0.3.7`.
+`codex plugin marketplace upgrade goalrail --json` reported only the selected
+marketplace, upgraded root, and no errors, but the snapshot moved to
+`2750bbb513700df13b0687da9e684754095fd704` and the `0.3.8` cache appeared three
+seconds later inside the same five-second command. No `plugin add` command ran.
+The installed tree matched the catalog payload byte-for-byte and the peeled
+`v0.3.8` tag resolved to that exact commit. This reached the three-check revisit
+threshold and falsified the metadata-only manual-refresh assumption. Keep the
+trial at `MODIFY`: preflight the remote candidate from the exact remote commit,
+authorize marketplace upgrade as a possibly combined action, read direct cache
+state before any list command, and offer `plugin add` only when the cache did
+not change. Revisit after three more real updates, an upstream lifecycle
+contract, or the existing date gate.
+
+The independent correction review found that catalog/tag validation alone did
+not prove a complete plugin payload and that the shared-version test did not
+pin the CLI dependency requirement. The correction adds a bundled exact-target
+diagnostic for manifest, required skill tree, Git blob inventory, executable
+modes, symlinks, peeled tag, and post-update cache bytes. Sabotage cases cover
+missing and mismatched manifest or skill payloads plus cache blob, mode, and
+expected-file, extra-entry, and root symlink drift plus non-regular cache
+entries. The package contract also rejects a stale
+`gr -> gr-inspect-codex` version requirement. Self-review added an immediate
+remote-head recheck before the moving-ref mutation; post-command verification
+remains authoritative because Codex exposes no commit-bound upgrade command.
+
+The final aggregate CI exposed an existing process-output race under coverage
+load: a child exited normally, but its reader thread did not publish stdout
+before the original command deadline, so the bounded runner returned empty
+output. Normal completion now keeps the original overall deadline while also
+guaranteeing one bounded drain grace after child exit; timeout and
+descendant-held-pipe behavior remains bounded. Record any output loss, runtime
+regression, or descendant wait beyond the grace interval.
+
 ## homebrew-release-stage-driver
 
 - Owner: [decision 0013](decisions/0013-harden-homebrew-release-stage.md)

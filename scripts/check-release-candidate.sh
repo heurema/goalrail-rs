@@ -26,6 +26,7 @@ shellcheck \
   scripts/assemble-release.sh \
   scripts/check-release-bundle.sh \
   scripts/check-github-release.sh \
+  scripts/check-github-run.sh \
   scripts/check-release-candidate.sh \
   scripts/check-remote-release-tag.sh \
   scripts/check-remote-release-tag-absent.sh \

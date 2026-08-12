@@ -84,6 +84,7 @@ check_workflow_contract "$workflow" || fail "release workflow contract is incomp
 for script in \
   scripts/check-release-candidate.sh \
   scripts/check-github-release.sh \
+  scripts/check-github-run.sh \
   scripts/check-remote-release-tag-absent.sh \
   scripts/prepare-release.sh \
   scripts/package-release.sh \
@@ -428,11 +429,73 @@ mkdir -p "$fake_gh_bin"
 cat >"$fake_gh_bin/gh" <<'EOF'
 #!/bin/sh
 set -eu
-[ "$1" = release ]
-[ "$2" = view ]
-cat "${GOALRAIL_TEST_GH_RESPONSE:?}"
+case "$1:$2" in
+  api:*) cat "${GOALRAIL_TEST_GH_API_RESPONSE:?}" ;;
+  release:view) cat "${GOALRAIL_TEST_GH_RESPONSE:?}" ;;
+  *) exit 1 ;;
+esac
 EOF
 chmod 0755 "$fake_gh_bin/gh"
+
+run_response="$fixture_root/run-response.json"
+jq -n \
+  --argjson id 123456789 \
+  --arg source_commit "$source_commit" \
+  --arg head_branch "release-candidate/v$version" '{
+    id: $id,
+    name: "build release candidate",
+    display_title: "build release bundle",
+    path: ".github/workflows/release.yml",
+    event: "workflow_dispatch",
+    head_branch: $head_branch,
+    head_sha: $source_commit,
+    status: "completed",
+    conclusion: "success",
+    run_attempt: 2,
+    html_url: "https://example.invalid/actions/runs/123456789",
+    repository: {full_name: "heurema/goalrail-rs"}
+  }' >"$run_response"
+run_output=$(PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_API_RESPONSE="$run_response" \
+  scripts/check-github-run.sh \
+    123456789 "$source_commit" "release-candidate/v$version")
+printf '%s\n' "$run_output" | jq -e \
+  --arg source_commit "$source_commit" \
+  --arg candidate_branch "release-candidate/v$version" '
+    .verdict == "RUN_VERIFIED"
+    and .runId == "123456789"
+    and .runAttempt == "2"
+    and .sourceCommit == $source_commit
+    and .candidateBranch == $candidate_branch
+  ' >/dev/null || fail "GitHub run checker omitted exact run identity"
+
+jq '.name = "build release bundle"' \
+  "$run_response" >"$run_response.registry-name"
+if PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_API_RESPONSE="$run_response.registry-name" \
+  scripts/check-github-run.sh \
+    123456789 "$source_commit" "release-candidate/v$version" >/dev/null 2>&1; then
+  fail "GitHub run checker accepted the default-branch registry name as run identity"
+fi
+
+jq '.head_sha = "0000000000000000000000000000000000000000"' \
+  "$run_response" >"$run_response.wrong-sha"
+if PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_API_RESPONSE="$run_response.wrong-sha" \
+  scripts/check-github-run.sh \
+    123456789 "$source_commit" "release-candidate/v$version" >/dev/null 2>&1; then
+  fail "GitHub run checker accepted a mismatched source commit"
+fi
+
+jq '.status = "in_progress" | .conclusion = null' \
+  "$run_response" >"$run_response.in-progress"
+if PATH="$fake_gh_bin:$PATH" \
+  GOALRAIL_TEST_GH_API_RESPONSE="$run_response.in-progress" \
+  scripts/check-github-run.sh \
+    123456789 "$source_commit" "release-candidate/v$version" >/dev/null 2>&1; then
+  fail "GitHub run checker accepted an incomplete run"
+fi
+
 public_work="$fixture_root/public-work"
 public_remote="$fixture_root/public-remote.git"
 git clone -q --no-tags . "$public_work"
@@ -561,6 +624,7 @@ cp .github/workflows/release.yml "$preflight_root/.github/workflows/release.yml"
 for required in \
   check-release-candidate.sh \
   check-github-release.sh \
+  check-github-run.sh \
   check-remote-release-tag-absent.sh \
   prepare-release.sh \
   package-release.sh \
@@ -651,4 +715,4 @@ printf '%s\n' "$unavailable_remote_output" | jq -e '
   and any(.findings[]; .code == "REMOTE_TAG_QUERY_FAILED")
 ' >/dev/null || fail "preflight omitted REMOTE_TAG_QUERY_FAILED"
 
-echo "RELEASE_TOOLING_TEST_OK targets=3 native=$host_target sabotage=line-endings,workflow-sha,workflow-final-tag,manifest,rustc-host,archive,binary-format,aggregate,run-receipt,formula,selected-run,public-state,public-assets,public-digest,public-tag-binding,remote-tag,tag-absence,preflight"
+echo "RELEASE_TOOLING_TEST_OK targets=3 native=$host_target sabotage=line-endings,workflow-sha,workflow-final-tag,manifest,rustc-host,archive,binary-format,aggregate,run-receipt,run-rest-identity,formula,selected-run,public-state,public-assets,public-digest,public-tag-binding,remote-tag,tag-absence,preflight"

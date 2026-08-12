@@ -59,6 +59,7 @@ fi
 for script in \
   scripts/check-release-candidate.sh \
   scripts/check-github-release.sh \
+  scripts/check-github-run.sh \
   scripts/check-remote-release-tag-absent.sh \
   scripts/prepare-release.sh \
   scripts/package-release.sh \

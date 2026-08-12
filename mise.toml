@@ -139,6 +139,10 @@ run = "./scripts/release-preflight.sh"
 description = "Run the exact source gate used by the native candidate workflow"
 run = "./scripts/check-release-candidate.sh"
 
+[tasks."release:run-check"]
+description = "Verify one exact successful GitHub Actions candidate run"
+run = "./scripts/check-github-run.sh"
+
 [tasks."release:public-check"]
 description = "Verify a selected run against GitHub Release state and asset digests"
 run = "./scripts/check-github-release.sh"

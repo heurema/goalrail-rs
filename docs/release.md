@@ -94,15 +94,22 @@ Record one exact successful run ID. Do not select a run by artifact name alone:
 
 ```sh
 gh run list --workflow release.yml --branch "$candidate_branch" --limit 10 \
-  --json databaseId,headSha,status,conclusion,url,attempt,event,headBranch,workflowName
-gh run view "$run_id" \
-  --json headSha,status,conclusion,url,attempt,event,headBranch,workflowName
+  --json databaseId,headSha,status,conclusion,url,attempt,event,headBranch
+run_receipt="$(scripts/check-github-run.sh \
+  "$run_id" "$source_commit" "$candidate_branch" heurema/goalrail-rs)"
+run_attempt="$(printf '%s\n' "$run_receipt" | jq -er '.runAttempt')"
 ```
 
-Require `headSha == source_commit`, `status == completed`, and
-`conclusion == success`. Also require `workflowName == build release candidate`,
-`event == workflow_dispatch`, `headBranch == candidate_branch`, and a positive
-`attempt`. Record that exact attempt as `run_attempt`.
+Require `RUN_VERIFIED`. The checker reads the selected run through GitHub's REST
+run endpoint and requires the exact repository, run ID, source commit, candidate
+branch, workflow path, run name, dispatch event, positive attempt, completed
+status, and successful conclusion.
+
+Do not use `gh run view --json workflowName` as run-name evidence. GitHub CLI
+resolves that field from the workflow registry on the default branch, so it may
+retain the previous workflow name while a candidate branch executes a renamed
+workflow. The REST run object's `name` field identifies the workflow definition
+that actually ran.
 
 ## 4. Download and verify the selected bundle
 

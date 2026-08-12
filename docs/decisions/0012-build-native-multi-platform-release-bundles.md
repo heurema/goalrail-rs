@@ -1,6 +1,6 @@
 # Decision 0012: Build native multi-platform release bundles
 
-- Status: accepted; pre-tag candidate flow implemented, live native canary pending
+- Status: accepted; native candidate passed, run-readback amendment pending repeat canary
 - Date: 2026-08-11
 - Owner: project owner
 
@@ -153,6 +153,15 @@ The review also found two gaps that are adopted here:
   It also revalidates that the remote annotated tag still resolves to the source
   commit recorded by the verified aggregate manifest and that the manifest's
   run ID and attempt equal the explicitly selected workflow run.
+
+The first live pre-tag canary completed successfully for all three targets and
+the aggregate bundle. Its post-run readback exposed a GitHub CLI identity trap:
+`gh run view --json workflowName` returned the old default-branch registry name,
+while the REST run object's `name` correctly identified the candidate workflow
+definition that executed. Goalrail therefore verifies selected-run identity via
+the REST run endpoint and sabotage-tests this exact divergence. Because this
+amendment changes the candidate source before tagging, the same `0.3.6` version
+must receive a new candidate run before tag creation.
 
 Critique receipt: requested and actual model `claude-fable-5`, status `success`,
 no fallback, exposed cost `$0.405929`.

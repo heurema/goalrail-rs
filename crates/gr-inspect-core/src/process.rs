@@ -9,20 +9,20 @@ use std::{
 const OUTPUT_DRAIN_GRACE: Duration = Duration::from_millis(100);
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
+/// One captured stream, or `None` when its reader did not finish in time.
+type DrainedStream = Option<Vec<u8>>;
+type StreamReader = Receiver<io::Result<Vec<u8>>>;
+
 #[derive(Debug)]
-pub(crate) struct ProcessOutput {
-    pub(crate) stdout: Vec<u8>,
-    pub(crate) stderr: Vec<u8>,
-    pub(crate) exit_code: Option<i32>,
-    pub(crate) duration: Duration,
-    pub(crate) timed_out: bool,
+pub struct ProcessOutput {
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+    pub exit_code: Option<i32>,
+    pub duration: Duration,
+    pub timed_out: bool,
 }
 
-pub(crate) fn run_bounded(
-    program: &str,
-    args: &[&str],
-    timeout: Duration,
-) -> io::Result<ProcessOutput> {
+pub fn run_bounded(program: &str, args: &[&str], timeout: Duration) -> io::Result<ProcessOutput> {
     let started_at = Instant::now();
     let mut child = Command::new(program)
         .args(args)
@@ -56,9 +56,13 @@ pub(crate) fn run_bounded(
         thread::sleep(poll_delay(timeout, elapsed));
     };
 
-    let drain_deadline = output_drain_deadline(started_at, timed_out, timeout, Instant::now());
-    let stdout = receive_reader(&stdout_reader, drain_deadline)?;
-    let stderr = receive_reader(&stderr_reader, drain_deadline)?;
+    let (stdout, stderr) = drain_readers(
+        &stdout_reader,
+        &stderr_reader,
+        started_at,
+        timed_out,
+        timeout,
+    )?;
     timed_out |= output_drain_incomplete(&stdout, &stderr);
 
     Ok(ProcessOutput {
@@ -88,7 +92,32 @@ fn output_drain_deadline(
     }
 }
 
-fn output_drain_incomplete(stdout: &Option<Vec<u8>>, stderr: &Option<Vec<u8>>) -> bool {
+/// Collect both output streams, giving each reader its own drain window.
+///
+/// A single shared deadline lets a slow first read consume the whole budget and
+/// starve the second stream, which returns as if the process had produced no
+/// output on it. Each wait therefore gets its own window, which keeps the total
+/// bounded at the timeout plus one grace period per stream.
+fn drain_readers(
+    stdout_reader: &StreamReader,
+    stderr_reader: &StreamReader,
+    started_at: Instant,
+    timed_out: bool,
+    timeout: Duration,
+) -> io::Result<(DrainedStream, DrainedStream)> {
+    let stdout = receive_reader(
+        stdout_reader,
+        output_drain_deadline(started_at, timed_out, timeout, Instant::now()),
+    )?;
+    let stderr = receive_reader(
+        stderr_reader,
+        output_drain_deadline(started_at, timed_out, timeout, Instant::now()),
+    )?;
+
+    Ok((stdout, stderr))
+}
+
+fn output_drain_incomplete(stdout: &DrainedStream, stderr: &DrainedStream) -> bool {
     stdout.is_none() || stderr.is_none()
 }
 
@@ -98,7 +127,7 @@ fn read_all(mut stream: impl Read) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn spawn_reader(stream: impl Read + Send + 'static) -> Receiver<io::Result<Vec<u8>>> {
+fn spawn_reader(stream: impl Read + Send + 'static) -> StreamReader {
     let (sender, receiver) = mpsc::channel();
     thread::spawn(move || {
         let _ = sender.send(read_all(stream));
@@ -106,10 +135,7 @@ fn spawn_reader(stream: impl Read + Send + 'static) -> Receiver<io::Result<Vec<u
     receiver
 }
 
-fn receive_reader(
-    receiver: &Receiver<io::Result<Vec<u8>>>,
-    deadline: Instant,
-) -> io::Result<Option<Vec<u8>>> {
+fn receive_reader(receiver: &StreamReader, deadline: Instant) -> io::Result<DrainedStream> {
     let remaining = deadline.saturating_duration_since(Instant::now());
     match receiver.recv_timeout(remaining) {
         Ok(result) => result.map(Some),
@@ -155,6 +181,32 @@ mod tests {
             output_drain_deadline(started_at, true, timeout, late_drain),
             late_drain + OUTPUT_DRAIN_GRACE
         );
+    }
+
+    #[test]
+    fn a_slow_first_stream_does_not_starve_the_second() {
+        let (slow_sender, slow_reader) = mpsc::channel();
+        let (prompt_sender, prompt_reader) = mpsc::channel();
+        thread::spawn(move || {
+            thread::sleep(OUTPUT_DRAIN_GRACE * 3);
+            let _ = slow_sender.send(Ok(b"late".to_vec()));
+        });
+        prompt_sender
+            .send(Ok(b"stderr".to_vec()))
+            .expect("the second stream is ready before the drain starts");
+
+        let started_at = Instant::now();
+        let (stdout, stderr) = drain_readers(
+            &slow_reader,
+            &prompt_reader,
+            started_at,
+            false,
+            Duration::ZERO,
+        )
+        .expect("draining should not fail");
+
+        assert_eq!(stdout, None);
+        assert_eq!(stderr, Some(b"stderr".to_vec()));
     }
 
     #[test]

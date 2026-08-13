@@ -1,5 +1,7 @@
 use std::{fmt::Write as _, io};
 
+use gr_inspect_core::format_exit_code;
+
 use crate::{
     Verdict, VersionProbe,
     agents::InstructionScope,
@@ -571,13 +573,6 @@ fn section_failure(
             verdict,
             ReportFinding::new(code, status, message),
         )),
-    }
-}
-
-fn format_exit_code(exit_code: Option<i32>) -> String {
-    match exit_code {
-        Some(code) => format!("exit code {code}"),
-        None => "termination by signal".to_owned(),
     }
 }
 

@@ -47,7 +47,11 @@ jq -e '
   package("gr-skill-assessment").publish == []
   and package("gr-skill-assessment").features == {}
   and owned_edges == [
+    "gr->gr-inspect-claude",
     "gr->gr-inspect-codex",
+    "gr->gr-inspect-core",
+    "gr-inspect-claude->gr-inspect-core",
+    "gr-inspect-codex->gr-inspect-core",
     "gr-inspect-codex->gr-skill-assessment"
   ]
   and (assessment_dependencies | length) == 1
@@ -75,4 +79,4 @@ cargo rustc --quiet --locked --offline --manifest-path "$assessment_manifest" --
   --sysroot "$work_root/sysroot" --emit=metadata ||
   fail "gr-skill-assessment does not compile without std in the sysroot"
 
-echo "ASSESSMENT_BOUNDARY_OK owned_edges=gr->gr-inspect-codex,gr-inspect-codex->gr-skill-assessment assessment_deps=serde std=no"
+echo "ASSESSMENT_BOUNDARY_OK owned_edges=gr->gr-inspect-claude,gr->gr-inspect-codex,gr->gr-inspect-core,gr-inspect-claude->gr-inspect-core,gr-inspect-codex->gr-inspect-core,gr-inspect-codex->gr-skill-assessment assessment_deps=serde std=no"

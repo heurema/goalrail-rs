@@ -2,7 +2,9 @@ use std::{io, time::Duration};
 
 use serde::Deserialize;
 
-use crate::{PROBE_TIMEOUT, process::run_bounded};
+use gr_inspect_core::run_bounded;
+
+use crate::PROBE_TIMEOUT;
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]

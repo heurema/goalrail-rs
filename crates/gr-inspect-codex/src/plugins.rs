@@ -6,12 +6,12 @@ use std::{
     time::Duration,
 };
 
+use gr_inspect_core::run_bounded;
 use gr_skill_assessment::{CoverageStatus, SkillSignal};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     PROBE_TIMEOUT, Verdict,
-    process::run_bounded,
     report::{REPORT_SCHEMA_VERSION, ReportFinding, ReportKind},
     skills::{
         AssessedPluginSkill, AssessedPluginSkills, AssessedSkillCoverage, COUNTING_BASIS,

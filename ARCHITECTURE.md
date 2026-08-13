@@ -2,7 +2,7 @@
 
 - Status: adopted; AD-6 assessment boundary enforced, remaining stages review-only
 - Scope: the Rust workspace
-- Last verified: 2026-08-11
+- Last verified: 2026-08-13
 
 This file records the architecture spine: only durable, non-obvious boundaries
 that independent contributors or agents could otherwise implement
@@ -17,9 +17,14 @@ libraries own application behavior.
 ```mermaid
 flowchart LR
     CLI["gr CLI adapter"] --> Facade["gr-inspect-codex facade"]
+    CLI --> ClaudeFacade["gr-inspect-claude facade"]
     Facade --> Probes["Codex probes and parsers"]
     Facade --> Assessment["gr-skill-assessment"]
     Facade --> Report["Outcome and report synthesis"]
+    ClaudeFacade --> ClaudeProbes["Claude probes and local evidence"]
+    ClaudeFacade --> ClaudeReport["Outcome and report synthesis"]
+    Facade --> Core["gr-inspect-core"]
+    ClaudeFacade --> Core
     Browser["static site"] --> Motion["gr-site WebAssembly motion"]
 ```
 
@@ -35,7 +40,7 @@ flowchart LR
 
 ### AD-2 — Keep inspection ownership in the library
 
-- **Binds:** `gr-inspect-codex` inspection execution.
+- **Binds:** `gr-inspect-codex` and `gr-inspect-claude` inspection execution.
 - **Prevents:** orchestration, error policy, and outcome construction being
   split across crates.
 - **Rule:** the library owns probe sequencing, timeout and failure
@@ -46,15 +51,20 @@ flowchart LR
 - **Binds:** all workspace crates.
 - **Prevents:** dependency cycles and domain behavior depending on delivery
   adapters.
-- **Rule:** `gr` may depend on `gr-inspect-codex`, and `gr-inspect-codex` may
-  depend on the internal `gr-skill-assessment` crate. Neither dependency may be
-  reversed. `gr-skill-assessment` may depend only on third-party serialization
-  support and the Rust `core`/`alloc` surface. Any new owned dependency edge
-  requires an explicit spine update before implementation.
+- **Rule:** the accepted owned edges are exactly `gr -> gr-inspect-codex`,
+  `gr -> gr-inspect-claude`, `gr -> gr-inspect-core`,
+  `gr-inspect-codex -> gr-inspect-core`,
+  `gr-inspect-codex -> gr-skill-assessment`, and
+  `gr-inspect-claude -> gr-inspect-core`. No edge may be reversed, and the two
+  inspection libraries must not depend on each other, so one agent's evidence
+  contract cannot reach the other except through the agent-neutral core.
+  `gr-skill-assessment` may depend only on third-party serialization support and
+  the Rust `core`/`alloc` surface. Any new owned dependency edge requires an
+  explicit spine update before implementation.
 
 ### AD-4 — Expose a narrow library facade
 
-- **Binds:** the public API of `gr-inspect-codex`.
+- **Binds:** the public API of `gr-inspect-codex` and `gr-inspect-claude`.
 - **Prevents:** CLI or future adapters coupling to probe, parser, discovery, or
   process-runner internals.
 - **Rule:** the public surface centers on the inspection use case and its
@@ -84,6 +94,28 @@ flowchart LR
   evidence service sequences these stages; use cases may consume narrow
   assessed projections without reimplementing acquisition or assessment.
 
+### AD-7 — Keep the shared inspection core agent-neutral
+
+- **Binds:** `gr-inspect-core`.
+- **Prevents:** one agent's probe vocabulary, report schema, or evidence policy
+  reaching the other inspection library through shared code.
+- **Rule:** the core owns only the bounded process runner, the shared `Verdict`
+  contract, and exit-code formatting. It must not name Codex or Claude
+  commands, paths, report shapes, findings, cleanup policy, or evidence bases,
+  and it must not depend on any other workspace crate.
+
+### AD-8 — Keep Claude inspection to documented, locally observable evidence
+
+- **Binds:** `gr-inspect-claude`.
+- **Prevents:** an inspection that infers Claude Code state from undocumented
+  files or that reports a diagnostic Claude Code does not expose.
+- **Rule:** evidence comes only from `claude --version`, the native
+  `claude plugin list --json` and `claude plugin marketplace list --json`
+  surfaces, and the documented configuration paths under the resolved Claude
+  home. The command is read-only. Where Claude Code exposes no machine-readable
+  surface, the report states the gap in `evidenceLimitations` instead of
+  parsing human output, guessing an undocumented file, or omitting the subject.
+
 The accepted internal dependency direction is `catalog -> assessment model`,
 `history -> assessment model`, and `presentation -> assessment output`; the
 orchestrator may depend on every stage. Model and assessment policy are owned by
@@ -96,16 +128,22 @@ and [decision 0008](docs/decisions/0008-enforce-skill-assessment-crate-boundary.
 
 - AD-1: `gr` parses each command, invokes one inspection use case, renders its
   opaque outcome, and maps the verdict to an exit code. It does not access probes.
-- AD-2: the summary, skills, and plugins use cases inside `gr-inspect-codex` own probe
-  sequencing, failure classification, outcome construction, and report
-  formatting.
+- AD-2: the summary, skills, and plugins use cases inside `gr-inspect-codex` and
+  the summary use case inside `gr-inspect-claude` own probe sequencing, failure
+  classification, outcome construction, and report formatting.
 - AD-3: Cargo metadata shows only the owned dependency edges
-  `gr -> gr-inspect-codex` and
-  `gr-inspect-codex -> gr-skill-assessment`.
-- AD-4: the library facade exports the summary, skills, and plugins inspection
-  use cases, their opaque outcomes, and `Verdict`. Probe and report internals are
-  `pub(crate)`, and `#![deny(unreachable_pub)]` rejects accidental unreachable
-  public items.
+  `gr -> gr-inspect-codex`, `gr -> gr-inspect-claude`, `gr -> gr-inspect-core`,
+  `gr-inspect-codex -> gr-inspect-core`,
+  `gr-inspect-codex -> gr-skill-assessment`, and
+  `gr-inspect-claude -> gr-inspect-core`. The `architecture:assessment` task in
+  CI compares that exact set.
+- AD-4: each library facade exports its inspection use cases and their opaque
+  outcomes; `Verdict` is owned and exported by `gr-inspect-core`, and each
+  adapter imports it from there rather than through a re-export. Probe and
+  report internals are `pub(crate)`, and `#![deny(unreachable_pub)]` rejects
+  accidental unreachable public items. The `architecture:public-api` trial pins
+  the `gr-inspect-codex` facade only; the `gr-inspect-claude` facade is not
+  pinned and remains a review obligation.
 - AD-5: `gr-site` has no owned dependency edge and its checked-in HTML owns the
   complete public message without WebAssembly.
 - AD-6: **REVIEW**. Neutral assessment input types and cleanup policy live in
@@ -116,6 +154,16 @@ and [decision 0008](docs/decisions/0008-enforce-skill-assessment-crate-boundary.
   `skills.rs`, so the complete five-stage graph is not yet extracted. The
   plugins use case consumes only the assessed plugin-skill projection and does
   not read the catalog or retained rollouts itself.
+- AD-7: `gr-inspect-core` contains the bounded process runner, `Verdict`, and
+  exit-code formatting only, and Cargo metadata shows it with no owned
+  dependency of its own.
+- AD-8: **REVIEW**. The Claude summary runs only the three native commands
+  named in the rule and reads only the resolved Claude home, `~/.claude.json`,
+  the project `.mcp.json`, `CLAUDE.md` sources, and `SKILL.md` manifests. Unit
+  and CLI integration tests cover unavailable, malformed, and absent evidence,
+  and one CLI test compares a Claude home snapshot before and after a run to
+  prove the command writes nothing. No check proves that a future probe stays
+  inside the documented surface; that remains a review obligation.
 
 The compiler and pre-push Clippy check enforce visibility and Cargo dependency
 validity. Unit and CLI integration tests protect the observable inspection
@@ -131,9 +179,12 @@ fixtures, and CI tasks no longer exist. The decision and retained evidence are
 recorded in [decision 0004](docs/decisions/0004-trial-native-architecture-fitness.md)
 and [`docs/trials.md`](docs/trials.md#architecture-fitness-v0).
 
-AD-1 through AD-6 still require explicit review; CI must not claim complete
+AD-1 through AD-8 still require explicit review; CI must not claim complete
 automated architecture conformance. The `architecture:assessment` task proves
-only the owned dependency and `no_std` constraints stated in decision 0008.
+only the owned dependency and `no_std` constraints stated in decision 0008,
+extended in [decision 0014](docs/decisions/0014-add-claude-inspection-crate.md)
+to the exact five-edge set that admits `gr-inspect-claude` and
+`gr-inspect-core`.
 The separate `architecture:public-api` trial detects only the rustdoc-visible facade slice recorded in
 [decision 0006](docs/decisions/0006-trial-cargo-public-api.md). Repository-owned
 Ruby tooling is prohibited, except for Homebrew's required Formula DSL. A

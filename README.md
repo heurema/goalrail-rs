@@ -3,10 +3,10 @@
 Goalrail is a small Rust command-line tool for evidence-backed inspection of
 coding-agent environments.
 
-The current implementation inspects an existing Codex installation using its
-native diagnostic commands and local configuration. It reports observed
-findings without installing tools, changing configuration, or treating missing
-evidence as success.
+The current implementation inspects an existing Codex or Claude Code
+installation using its native diagnostic commands and local configuration. It
+reports observed findings without installing tools, changing configuration, or
+treating missing evidence as success.
 
 ## Current command
 
@@ -16,6 +16,8 @@ cargo run -p gr -- inspect codex --json
 cargo run -p gr -- inspect codex skills --actionable --json
 cargo run -p gr -- inspect codex skills --json
 cargo run -p gr -- inspect codex plugins --json
+cargo run -p gr -- inspect claude
+cargo run -p gr -- inspect claude --json
 ```
 
 `gr inspect codex` checks the available Codex diagnostics, features,
@@ -92,6 +94,52 @@ skill use never means that a plugin is unused because plugins can also provide
 MCP, apps, and other non-skill capabilities. The command does not recommend
 cleanup, expose the available marketplace catalog, or enable, disable, install,
 or remove anything. It writes no cache, durable memory, or database.
+
+## Claude Code inspection
+
+`gr inspect claude` reports the same four verdicts from a different evidence
+surface. It runs exactly three native commands — `claude --version`,
+`claude plugin list --json`, and `claude plugin marketplace list --json` — and
+reads the documented configuration under the resolved Claude home, which is
+`CLAUDE_CONFIG_DIR` when set and `~/.claude` otherwise. It writes nothing.
+
+The summary reports the Claude version, the installed plugin inventory with
+enabled and per-scope counts, the configured marketplace count, MCP servers
+counted from `~/.claude.json` and the project `.mcp.json` by scope, personal and
+project skill manifests found on disk, the resolved Claude home, the detected
+project root, and the discovered `CLAUDE.md` instruction sources with their
+scope and size. An instruction source is reported as discovered, not as loaded:
+the command observes that the file exists and how large it is.
+
+Claude Code records local-scope state under the directory a session was started
+in, so `stateEntry` is keyed on the current working directory rather than on the
+project root, and `currentDir` and `stateEntryPath` name the exact directory and
+the exact matched `projects` key. Local-scope MCP servers are counted from that
+same entry.
+
+Claude Code exposes less machine-readable diagnostic surface than Codex, so the
+report names each gap in `evidenceLimitations` instead of guessing:
+`claude doctor` has no JSON form and is not inspected; `claude mcp list` has no
+JSON form, so MCP servers are counted from configuration without connection,
+health, or authentication state; the skill counts cover personal and project
+`SKILL.md` manifests only, not bundled or plugin-contributed skills; and no
+usage history is observed, so nothing in the report means a plugin or skill is
+unused. There is no skills or plugins drilldown for Claude: a Claude transcript
+records a skill invocation by name rather than by manifest path, so the exact
+manifest-path evidence basis used by the Codex drilldowns has no equivalent.
+
+Absent configuration is evidence of zero rather than failure. `REVIEW` is
+reserved for observable inconsistencies in the native inventory: an installed
+plugin whose recorded `installPath` does not exist or cannot be examined, and a
+plugin id reported more than once. A failed, timed-out, or unparsable probe and
+malformed configuration are `INCOMPLETE`; an unavailable `claude` executable is
+`BLOCKED`. A configuration file that exists but cannot be read fails the
+inspection rather than being counted as empty. For the project root marker,
+skill manifests, and instruction files the command examines metadata only, so a
+path whose metadata cannot be examined fails the inspection, while a path that
+resolves to nothing — including a dangling symlink — reads as absent. File
+contents are never opened, so the report does not assert that a discovered
+manifest or instruction file is readable.
 
 ## Codex plugin trial
 

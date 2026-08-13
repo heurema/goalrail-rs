@@ -1,14 +1,11 @@
 [package]
-name = "gr"
+name = "gr-inspect-claude"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [dependencies]
-clap = { workspace = true, features = ["derive"] }
-gr-inspect-claude.workspace = true
-gr-inspect-codex.workspace = true
 gr-inspect-core.workspace = true
-
-[dev-dependencies]
+serde = { workspace = true, features = ["derive", "std"] }
 serde_json.workspace = true

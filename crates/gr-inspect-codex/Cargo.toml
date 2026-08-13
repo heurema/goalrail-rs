@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+gr-inspect-core.workspace = true
 gr-skill-assessment.workspace = true
 memchr.workspace = true
 serde = { workspace = true, features = ["derive", "std"] }

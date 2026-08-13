@@ -2,14 +2,44 @@
   "schema_version": 1,
   "workspace_members": [
     "gr",
+    "gr-inspect-claude",
     "gr-inspect-codex",
+    "gr-inspect-core",
     "gr-site",
     "gr-skill-assessment"
   ],
   "owned_edges": [
     {
       "from": "gr",
+      "to": "gr-inspect-claude",
+      "kind": "normal",
+      "target": null,
+      "optional": false
+    },
+    {
+      "from": "gr",
       "to": "gr-inspect-codex",
+      "kind": "normal",
+      "target": null,
+      "optional": false
+    },
+    {
+      "from": "gr",
+      "to": "gr-inspect-core",
+      "kind": "normal",
+      "target": null,
+      "optional": false
+    },
+    {
+      "from": "gr-inspect-claude",
+      "to": "gr-inspect-core",
+      "kind": "normal",
+      "target": null,
+      "optional": false
+    },
+    {
+      "from": "gr-inspect-codex",
+      "to": "gr-inspect-core",
       "kind": "normal",
       "target": null,
       "optional": false
@@ -25,14 +55,10 @@
   "public_api_items": [
     "impl gr_inspect_codex::InspectionOutcome",
     "impl gr_inspect_codex::SkillsInspectionOutcome",
-    "impl gr_inspect_codex::Verdict",
     "pub const fn gr_inspect_codex::InspectionOutcome::is_failure(&self) -> bool",
-    "pub const fn gr_inspect_codex::InspectionOutcome::verdict(&self) -> gr_inspect_codex::Verdict",
+    "pub const fn gr_inspect_codex::InspectionOutcome::verdict(&self) -> gr_inspect_core::Verdict",
     "pub const fn gr_inspect_codex::SkillsInspectionOutcome::is_failure(&self) -> bool",
-    "pub const fn gr_inspect_codex::SkillsInspectionOutcome::verdict(&self) -> gr_inspect_codex::Verdict",
-    "pub const fn gr_inspect_codex::Verdict::as_str(self) -> &'static str",
-    "pub const fn gr_inspect_codex::Verdict::exit_code(self) -> u8",
-    "pub enum gr_inspect_codex::Verdict",
+    "pub const fn gr_inspect_codex::SkillsInspectionOutcome::verdict(&self) -> gr_inspect_core::Verdict",
     "pub fn gr_inspect_codex::InspectionOutcome::to_human(&self) -> alloc::string::String",
     "pub fn gr_inspect_codex::InspectionOutcome::to_pretty_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>",
     "pub fn gr_inspect_codex::SkillsInspectionOutcome::to_human(&self) -> alloc::string::String",
@@ -41,10 +67,6 @@
     "pub fn gr_inspect_codex::inspect_codex_plugins() -> gr_inspect_codex::InspectionOutcome",
     "pub fn gr_inspect_codex::inspect_codex_skill_actions() -> gr_inspect_codex::SkillsInspectionOutcome",
     "pub fn gr_inspect_codex::inspect_codex_skills() -> gr_inspect_codex::SkillsInspectionOutcome",
-    "pub gr_inspect_codex::Verdict::BaselineOk",
-    "pub gr_inspect_codex::Verdict::Blocked",
-    "pub gr_inspect_codex::Verdict::Incomplete",
-    "pub gr_inspect_codex::Verdict::Review",
     "pub mod gr_inspect_codex",
     "pub struct gr_inspect_codex::InspectionOutcome",
     "pub struct gr_inspect_codex::SkillsInspectionOutcome"
@@ -53,14 +75,50 @@
     {
       "path": "crates/gr-cli/src/main.rs",
       "package": "gr",
-      "lines": 256,
-      "content_hash": "1247da0f710975e236a492059649845139bfb089"
+      "lines": 317,
+      "content_hash": "0a3abbf0275a998053dd8234b0619e03bea27042"
+    },
+    {
+      "path": "crates/gr-cli/tests/inspect_claude.rs",
+      "package": "gr",
+      "lines": 442,
+      "content_hash": "9289f76217f7075f8fd6b37ffcb59ee1d2ac17e8"
     },
     {
       "path": "crates/gr-cli/tests/inspect_codex.rs",
       "package": "gr",
       "lines": 680,
       "content_hash": "36dd4b2f982d7cd870c2c2a309b277496324d65a"
+    },
+    {
+      "path": "crates/gr-inspect-claude/src/lib.rs",
+      "package": "gr-inspect-claude",
+      "lines": 20,
+      "content_hash": "929265f524ee49d623398f98973f48e94ef57ba6"
+    },
+    {
+      "path": "crates/gr-inspect-claude/src/local.rs",
+      "package": "gr-inspect-claude",
+      "lines": 807,
+      "content_hash": "bd17fb581d550497eee613758321cd1c94c82824"
+    },
+    {
+      "path": "crates/gr-inspect-claude/src/probes.rs",
+      "package": "gr-inspect-claude",
+      "lines": 181,
+      "content_hash": "56ef247f18a7af43661c0fccb095f8967eae24b8"
+    },
+    {
+      "path": "crates/gr-inspect-claude/src/report.rs",
+      "package": "gr-inspect-claude",
+      "lines": 489,
+      "content_hash": "37258318a8cf72568e28d7499fb33afaeb98f87d"
+    },
+    {
+      "path": "crates/gr-inspect-claude/src/use_case.rs",
+      "package": "gr-inspect-claude",
+      "lines": 631,
+      "content_hash": "13dd3c8c874a7d911b51d5f6db7e9aa57abb1752"
     },
     {
       "path": "crates/gr-inspect-codex/src/agents.rs",
@@ -71,14 +129,14 @@
     {
       "path": "crates/gr-inspect-codex/src/doctor.rs",
       "package": "gr-inspect-codex",
-      "lines": 88,
-      "content_hash": "c2548457f13bd62f1210318a7d429b89e3437573"
+      "lines": 90,
+      "content_hash": "9e7ece71aaebfd0808f64f7bea7acd79f0175075"
     },
     {
       "path": "crates/gr-inspect-codex/src/features.rs",
       "package": "gr-inspect-codex",
-      "lines": 87,
-      "content_hash": "82e8b9e5c43b4c21cf2d7960ead6c073ddcc20c0"
+      "lines": 89,
+      "content_hash": "c090478ecd05fe08e5b80687b6aab52331259b41"
     },
     {
       "path": "crates/gr-inspect-codex/src/inspection.rs",
@@ -89,32 +147,26 @@
     {
       "path": "crates/gr-inspect-codex/src/lib.rs",
       "package": "gr-inspect-codex",
-      "lines": 146,
-      "content_hash": "cd1911c816f2f95d8bcce49e0ca22f6f8ea89115"
+      "lines": 101,
+      "content_hash": "35663d4b2bf04686df6281089bbb99188f052f6a"
     },
     {
       "path": "crates/gr-inspect-codex/src/marketplaces.rs",
       "package": "gr-inspect-codex",
-      "lines": 121,
-      "content_hash": "0789ffacbab83c3c28668cf0d0887f671726b999"
+      "lines": 123,
+      "content_hash": "5347286bf695e4a05d3cac7fbae50329ed618f7b"
     },
     {
       "path": "crates/gr-inspect-codex/src/mcp.rs",
       "package": "gr-inspect-codex",
-      "lines": 120,
-      "content_hash": "71a086f350a904ed271c148d455a689ab4f5ee56"
+      "lines": 122,
+      "content_hash": "9bc6e176e6f6620e40407cffda0d8592b9d8d0da"
     },
     {
       "path": "crates/gr-inspect-codex/src/plugins.rs",
       "package": "gr-inspect-codex",
-      "lines": 1048,
-      "content_hash": "9c6b66a1cbc7257a149a5fbd2bb0a56c0d028ac1"
-    },
-    {
-      "path": "crates/gr-inspect-codex/src/process.rs",
-      "package": "gr-inspect-codex",
-      "lines": 236,
-      "content_hash": "f73b2f3ca90af818634a90b678d76570fe43cc61"
+      "lines": 1173,
+      "content_hash": "085f4937fc732870992e3e2638ff943f5482b0b0"
     },
     {
       "path": "crates/gr-inspect-codex/src/report.rs",
@@ -131,8 +183,20 @@
     {
       "path": "crates/gr-inspect-codex/src/use_case.rs",
       "package": "gr-inspect-codex",
-      "lines": 1215,
-      "content_hash": "5bce1d5f22e00362223b219e4e20a21f77b06ae0"
+      "lines": 1210,
+      "content_hash": "85ec21aad3defa1fac5e608f79b50cca35423d86"
+    },
+    {
+      "path": "crates/gr-inspect-core/src/lib.rs",
+      "package": "gr-inspect-core",
+      "lines": 76,
+      "content_hash": "049303899523cbe9ada0a1b2ad1f9e1d69a5612b"
+    },
+    {
+      "path": "crates/gr-inspect-core/src/process.rs",
+      "package": "gr-inspect-core",
+      "lines": 294,
+      "content_hash": "1a35b2b96a4721d133555a6d0f2e643fb6fcae49"
     },
     {
       "path": "crates/gr-site/src/lib.rs",

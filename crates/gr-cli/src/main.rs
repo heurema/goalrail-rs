@@ -1,12 +1,16 @@
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+use gr_inspect_claude::{
+    InspectionOutcome as ClaudeInspectionOutcome, inspect_claude as run_claude_inspection,
+};
 use gr_inspect_codex::{
-    InspectionOutcome, SkillsInspectionOutcome, Verdict, inspect_codex as run_codex_inspection,
+    InspectionOutcome, SkillsInspectionOutcome, inspect_codex as run_codex_inspection,
     inspect_codex_plugins as run_codex_plugins_inspection,
     inspect_codex_skill_actions as run_codex_skill_actions_inspection,
     inspect_codex_skills as run_codex_skills_inspection,
 };
+use gr_inspect_core::Verdict;
 
 #[derive(Debug, Parser)]
 #[command(name = "gr", version, about = "Goalrail command-line interface")]
@@ -30,6 +34,10 @@ enum InspectTarget {
         json: bool,
         #[command(subcommand)]
         section: Option<CodexSection>,
+    },
+    Claude {
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -74,7 +82,38 @@ fn main() -> ExitCode {
                     section: Some(CodexSection::Plugins { json: inner_json }),
                 },
         } => inspect_codex_plugins(outer_json || inner_json),
+        Command::Inspect {
+            target: InspectTarget::Claude { json },
+        } => inspect_claude(json),
     }
+}
+
+fn inspect_claude(json: bool) -> ExitCode {
+    let outcome = run_claude_inspection();
+    let verdict = render_claude_outcome(json, &outcome);
+
+    ExitCode::from(verdict.exit_code())
+}
+
+fn render_claude_outcome(json: bool, outcome: &ClaudeInspectionOutcome) -> Verdict {
+    if json {
+        match outcome.to_pretty_json() {
+            Ok(output) => println!("{output}"),
+            Err(error) => {
+                eprintln!("gr inspect claude: failed to serialize JSON report: {error}");
+                return Verdict::Incomplete;
+            }
+        }
+    } else {
+        let output = outcome.to_human();
+        if outcome.is_failure() {
+            eprintln!("gr inspect claude: {output}");
+        } else {
+            print!("{output}");
+        }
+    }
+
+    outcome.verdict()
 }
 
 fn inspect_codex_plugins(json: bool) -> ExitCode {
@@ -234,6 +273,28 @@ mod tests {
                     json: false,
                     section: Some(CodexSection::Plugins { json: true }),
                 }
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_claude_inspection_with_and_without_json_output() {
+        let cli = Cli::try_parse_from(["gr", "inspect", "claude", "--json"])
+            .expect("command should parse");
+
+        assert!(matches!(
+            cli.command,
+            Command::Inspect {
+                target: InspectTarget::Claude { json: true }
+            }
+        ));
+
+        let cli = Cli::try_parse_from(["gr", "inspect", "claude"]).expect("command should parse");
+
+        assert!(matches!(
+            cli.command,
+            Command::Inspect {
+                target: InspectTarget::Claude { json: false }
             }
         ));
     }

@@ -9,7 +9,9 @@ license = "MIT"
 
 [workspace.dependencies]
 clap = "4"
+gr-inspect-claude = { path = "crates/gr-inspect-claude" }
 gr-inspect-codex = { version = "0.3.10", path = "crates/gr-inspect-codex" }
+gr-inspect-core = { path = "crates/gr-inspect-core" }
 gr-skill-assessment = { path = "crates/gr-skill-assessment" }
 memchr = "2"
 serde = { version = "1", default-features = false }

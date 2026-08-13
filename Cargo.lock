@@ -109,7 +109,18 @@ name = "gr"
 version = "0.3.10"
 dependencies = [
  "clap",
+ "gr-inspect-claude",
  "gr-inspect-codex",
+ "gr-inspect-core",
+ "serde_json",
+]
+
+[[package]]
+name = "gr-inspect-claude"
+version = "0.3.10"
+dependencies = [
+ "gr-inspect-core",
+ "serde",
  "serde_json",
 ]
 
@@ -117,11 +128,19 @@ dependencies = [
 name = "gr-inspect-codex"
 version = "0.3.10"
 dependencies = [
+ "gr-inspect-core",
  "gr-skill-assessment",
  "memchr",
  "serde",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "gr-inspect-core"
+version = "0.3.10"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

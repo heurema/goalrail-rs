@@ -1,0 +1,8 @@
+pub mod gr_inspect_claude
+pub struct gr_inspect_claude::InspectionOutcome
+impl gr_inspect_claude::InspectionOutcome
+pub const fn gr_inspect_claude::InspectionOutcome::is_failure(&self) -> bool
+pub fn gr_inspect_claude::InspectionOutcome::to_human(&self) -> alloc::string::String
+pub fn gr_inspect_claude::InspectionOutcome::to_pretty_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+pub const fn gr_inspect_claude::InspectionOutcome::verdict(&self) -> gr_inspect_core::Verdict
+pub fn gr_inspect_claude::inspect_claude() -> gr_inspect_claude::InspectionOutcome

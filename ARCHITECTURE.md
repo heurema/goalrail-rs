@@ -142,8 +142,9 @@ and [decision 0008](docs/decisions/0008-enforce-skill-assessment-crate-boundary.
   adapter imports it from there rather than through a re-export. Probe and
   report internals are `pub(crate)`, and `#![deny(unreachable_pub)]` rejects
   accidental unreachable public items. The `architecture:public-api` trial pins
-  the `gr-inspect-codex` facade only; the `gr-inspect-claude` facade is not
-  pinned and remains a review obligation.
+  both inspection facades, `gr-inspect-codex` at 17 items and
+  `gr-inspect-claude` at 8; a facade absent from the trial's package list is not
+  checked, so adding an inspection library means adding it there.
 - AD-5: `gr-site` has no owned dependency edge and its checked-in HTML owns the
   complete public message without WebAssembly.
 - AD-6: **REVIEW**. Neutral assessment input types and cleanup policy live in

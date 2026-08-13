@@ -15,11 +15,32 @@ spine?
 Trial `cargo-public-api` 0.52.0 as a separate, manually invoked snapshot gate.
 It is pinned in `mise.toml` but is not part of `mise run ci`.
 
-The accepted claim is deliberately narrow: for `gr-inspect-codex`, the task
+The accepted claim is deliberately narrow: for each pinned package, the task
 detects changes to rustdoc-visible public declarations and explicit impls with
 no default features on `aarch64-apple-darwin`. It fails closed when the tool or
 nightly version differs, rustdoc references are unresolved, or the generated
 surface differs from the checked-in snapshot.
+
+The pinned set lives in `architecture/public-api/pinned-packages.txt` and is
+currently `gr-inspect-codex` and `gr-inspect-claude`. A facade absent from that
+file is not checked at all, so adding an inspection library means adding it
+there and accepting its snapshot; this was extended on 2026-08-13, when
+`gr-inspect-claude` shipped unpinned. `scripts/architecture-drift.sh` reads the
+same file, so the two trials cannot disagree about which facades are pinned.
+
+An explicit `GOALRAIL_PUBLIC_API_PACKAGE` or `GOALRAIL_PUBLIC_API_SNAPSHOT`
+selects single-package mode. `GOALRAIL_PUBLIC_API_PACKAGE_LIST` and
+`GOALRAIL_PUBLIC_API_SNAPSHOT_DIR` drive the multi-package loop against
+fixtures and require `GOALRAIL_PUBLIC_API_GATE_TESTING=1`, so a stray override
+cannot quietly narrow the production gate. `scripts/test-public-api.sh` covers
+both modes: a passing two-package run, a changed second-package snapshot, an
+unguarded override, an empty list, and an assertion that the production list
+names both real facades and that each has an accepted snapshot.
+
+A cross-crate `pub use` breaks this trial rather than being pinned by it: the
+per-package rustdoc JSON cannot resolve the re-exported item, so the generator
+reports unresolved references and the task fails closed. Shared public types
+belong in a crate each consumer depends on directly.
 
 The task omits blanket, auto-trait, and auto-derived impls because the initial
 Goalrail run produced 21 unresolved rustdoc references when auto traits were

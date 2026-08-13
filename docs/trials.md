@@ -195,7 +195,7 @@ and point the agent to the structured coverage counters for the cause.
 
 - Owner: [decision 0011](decisions/0011-co-locate-goalrail-codex-plugin.md)
 - Added: `2026-08-12`
-- Revisit: after two more real plugin update checks, an explicit upstream Codex
+- Revisit: after three more real plugin update checks, an explicit upstream Codex
   lifecycle contract, or by `2026-09-12`, whichever comes first.
 - Current decision: `MODIFY`.
 
@@ -259,27 +259,34 @@ threshold and falsified the metadata-only manual-refresh assumption. Keep the
 trial at `MODIFY`: preflight the remote candidate from the exact remote commit,
 authorize marketplace upgrade as a possibly combined action, read direct cache
 state before any list command, and offer `plugin add` only when the cache did
-not change. Revisit after three more real updates, an upstream lifecycle
-contract, or the existing date gate.
+not change. Revisit after three more completed real plugin update checks, an
+upstream lifecycle contract, or the existing date gate.
 
-The fourth real update check exercised the released `v0.3.9` flow on Codex CLI
-`0.147.0`. It started with native CLI and plugin `0.3.8`, a clean marketplace
-snapshot at `2750bbb513700df13b0687da9e684754095fd704`, and remote `main` at
+The released `v0.3.9` live observation on Codex CLI `0.147.0` started with
+native CLI and plugin `0.3.8`, a clean marketplace snapshot at
+`2750bbb513700df13b0687da9e684754095fd704`, and remote `main` at
 `396b262b3894f65cfa46f184e22ba73441116023`. The separately approved Homebrew
 upgrade moved only the native CLI to `0.3.9`. The later approved
 `codex plugin marketplace upgrade goalrail --json` moved the snapshot and
 installed cache to `0.3.9` during the same command, without `plugin add`.
+Direct readback proved the new snapshot, cache directory, and manifest version,
+but the acting task did not rerun `plugin-update-target.sh` with the exact cache
+root and therefore recorded no `cacheVerified: true` payload proof. This
+observation does not count as a completed update check for the three-update
+revisit threshold.
 
 An immediately created verification task then received a stale host-registered
 skill path for `0.3.8`, which no longer existed on disk, and correctly stopped
 `BLOCKED`. A later user-created task in the same running client loaded the
 `0.3.9` skill and verified both update channels as fresh `NO_CHANGE`. This is
 evidence of a transient task-registration race, not evidence that client
-restart is required. The normal reload guidance now starts with one new task,
-allows at most one additional new task after a missing or previous-version
-skill path, and treats restart only as a fallback after the repeated failure.
-Keep the trial at `MODIFY` and revisit after two more real updates, an upstream
-lifecycle contract, or the existing date gate.
+restart is required. The normal reload guidance now passes the exact expected
+version and skill manifest path in an external bootstrap prompt, validates the
+task registration before executing the loaded skill, allows at most one
+additional new task after a mismatch, and treats restart only as a fallback
+after the repeated failure. Keep the trial at `MODIFY` and revisit after three
+more completed real plugin update checks, an upstream lifecycle contract, or
+the existing date gate.
 
 The independent correction review found that catalog/tag validation alone did
 not prove a complete plugin payload and that the shared-version test did not

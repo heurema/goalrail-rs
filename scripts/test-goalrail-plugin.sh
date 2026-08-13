@@ -190,7 +190,12 @@ grep -F 'not run `plugin add`' "$update_discovery" >/dev/null
 grep -F 'calling either list command' "$update_discovery" >/dev/null
 grep -F 'cannot eliminate' "$update_discovery" >/dev/null
 grep -F 'Post-command exact snapshot and cache verification remains mandatory' "$update_discovery" >/dev/null
-grep -F 'open a new task or restart the' "$update_discovery" >/dev/null
+grep -F 'open a new task as the normal skill reload action' "$update_discovery" >/dev/null
+grep -F 'return `BLOCKED` for' "$update_discovery" >/dev/null
+grep -F 'report stale host registration; do not claim that' "$update_discovery" >/dev/null
+grep -F 'the update failed. Offer at most one additional new task' "$update_discovery" >/dev/null
+grep -F 'Treat client restart only as a' "$update_discovery" >/dev/null
+grep -F 'say it is required after one stale task' "$update_discovery" >/dev/null
 grep -F 'Goalrail skill and CLI perform no background update check' "$update_discovery" >/dev/null
 grep -F 'read `update-discovery.md`' "$install" >/dev/null
 grep -F 'follow `update-discovery.md`' "$plugin_lifecycle" >/dev/null
@@ -201,6 +206,11 @@ grep -F 'potentially combined state-changing action' "$plugin_lifecycle" >/dev/n
 grep -F 'do not run `plugin add`' "$plugin_lifecycle" >/dev/null
 grep -F 'scripts/plugin-update-target.sh' "$plugin_lifecycle" >/dev/null
 grep -F 'cannot atomically bind its moving ref' "$plugin_lifecycle" >/dev/null
+grep -F 'new task as the normal reload action' "$plugin_lifecycle" >/dev/null
+grep -F 'return `BLOCKED` for that verification' "$plugin_lifecycle" >/dev/null
+grep -F 'report stale host registration; do not claim that the update failed' "$plugin_lifecycle" >/dev/null
+grep -F 'Offer at most one additional new task' "$plugin_lifecycle" >/dev/null
+grep -F 'Never say that restart is required after one stale task' "$plugin_lifecycle" >/dev/null
 grep -F 'git -C <tap-root> symbolic-ref --short HEAD' "$public_install" >/dev/null
 grep -F 'git -C <tap-root> rev-parse HEAD' "$public_install" >/dev/null
 grep -F '`channelLag: true`' "$public_install" >/dev/null
@@ -216,6 +226,14 @@ for file in "$update_discovery" "$plugin_lifecycle" "$public_install"; do
       || grep -F 'refreshes only the Goalrail marketplace' "$file" >/dev/null \
       || grep -F 'Applying an available plugin update is another separately approved action' "$file" >/dev/null; then
     echo "Goalrail lifecycle docs still claim marketplace upgrade is metadata-only: $file" >&2
+    exit 1
+  fi
+done
+
+for file in "$update_discovery" "$plugin_lifecycle"; do
+  if grep -F 'open a new task or restart the client' "$file" >/dev/null \
+      || grep -F 'new task or client restart as a reload action' "$file" >/dev/null; then
+    echo "Goalrail lifecycle docs still present restart as a normal reload peer: $file" >&2
     exit 1
   fi
 done

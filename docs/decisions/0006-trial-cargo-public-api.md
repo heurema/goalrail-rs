@@ -15,11 +15,24 @@ spine?
 Trial `cargo-public-api` 0.52.0 as a separate, manually invoked snapshot gate.
 It is pinned in `mise.toml` but is not part of `mise run ci`.
 
-The accepted claim is deliberately narrow: for `gr-inspect-codex`, the task
+The accepted claim is deliberately narrow: for each pinned package, the task
 detects changes to rustdoc-visible public declarations and explicit impls with
 no default features on `aarch64-apple-darwin`. It fails closed when the tool or
 nightly version differs, rustdoc references are unresolved, or the generated
 surface differs from the checked-in snapshot.
+
+The pinned set is listed in `scripts/check-public-api.sh` and is currently
+`gr-inspect-codex` and `gr-inspect-claude`. A facade absent from that list is
+not checked at all, so adding an inspection library means adding it there and
+accepting its snapshot; this was extended on 2026-08-13, when
+`gr-inspect-claude` shipped unpinned. An explicit `GOALRAIL_PUBLIC_API_PACKAGE`
+or `GOALRAIL_PUBLIC_API_SNAPSHOT` selects single-package mode, which the trial's
+own sabotage test uses to drive the checker against a fixture.
+
+A cross-crate `pub use` breaks this trial rather than being pinned by it: the
+per-package rustdoc JSON cannot resolve the re-exported item, so the generator
+reports unresolved references and the task fails closed. Shared public types
+belong in a crate each consumer depends on directly.
 
 The task omits blanket, auto-trait, and auto-derived impls because the initial
 Goalrail run produced 21 unresolved rustdoc references when auto traits were

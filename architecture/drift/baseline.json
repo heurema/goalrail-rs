@@ -53,12 +53,18 @@
     }
   ],
   "public_api_items": [
+    "impl gr_inspect_claude::InspectionOutcome",
     "impl gr_inspect_codex::InspectionOutcome",
     "impl gr_inspect_codex::SkillsInspectionOutcome",
+    "pub const fn gr_inspect_claude::InspectionOutcome::is_failure(&self) -> bool",
+    "pub const fn gr_inspect_claude::InspectionOutcome::verdict(&self) -> gr_inspect_core::Verdict",
     "pub const fn gr_inspect_codex::InspectionOutcome::is_failure(&self) -> bool",
     "pub const fn gr_inspect_codex::InspectionOutcome::verdict(&self) -> gr_inspect_core::Verdict",
     "pub const fn gr_inspect_codex::SkillsInspectionOutcome::is_failure(&self) -> bool",
     "pub const fn gr_inspect_codex::SkillsInspectionOutcome::verdict(&self) -> gr_inspect_core::Verdict",
+    "pub fn gr_inspect_claude::InspectionOutcome::to_human(&self) -> alloc::string::String",
+    "pub fn gr_inspect_claude::InspectionOutcome::to_pretty_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>",
+    "pub fn gr_inspect_claude::inspect_claude() -> gr_inspect_claude::InspectionOutcome",
     "pub fn gr_inspect_codex::InspectionOutcome::to_human(&self) -> alloc::string::String",
     "pub fn gr_inspect_codex::InspectionOutcome::to_pretty_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>",
     "pub fn gr_inspect_codex::SkillsInspectionOutcome::to_human(&self) -> alloc::string::String",
@@ -67,7 +73,9 @@
     "pub fn gr_inspect_codex::inspect_codex_plugins() -> gr_inspect_codex::InspectionOutcome",
     "pub fn gr_inspect_codex::inspect_codex_skill_actions() -> gr_inspect_codex::SkillsInspectionOutcome",
     "pub fn gr_inspect_codex::inspect_codex_skills() -> gr_inspect_codex::SkillsInspectionOutcome",
+    "pub mod gr_inspect_claude",
     "pub mod gr_inspect_codex",
+    "pub struct gr_inspect_claude::InspectionOutcome",
     "pub struct gr_inspect_codex::InspectionOutcome",
     "pub struct gr_inspect_codex::SkillsInspectionOutcome"
   ],

@@ -29,7 +29,10 @@ baseline records identities instead of aggregate counts:
 
 - workspace package names;
 - owned dependency edges as `(from, to, kind, target, optional)`;
-- each item from the pinned current `cargo-public-api` surface;
+- each item from the pinned current `cargo-public-api` surface, aggregated over
+  every package in `architecture/public-api/pinned-packages.txt` rather than the
+  generator's default package, so the slice covers the same facades the public
+  API trial pins;
 - each workspace Rust file as `(path, package, line count, content fingerprint)`.
 
 `mise run architecture:drift` compares the current snapshot with

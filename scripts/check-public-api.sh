@@ -4,11 +4,15 @@ set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 generator="$repo_root/scripts/generate-public-api.sh"
+snapshot_dir=${GOALRAIL_PUBLIC_API_SNAPSHOT_DIR:-"$repo_root/architecture/public-api"}
+package_list=${GOALRAIL_PUBLIC_API_PACKAGE_LIST:-"$repo_root/architecture/public-api/pinned-packages.txt"}
 
-# Every crate whose rustdoc-visible facade is pinned. A facade that is not
-# listed here is not checked by this trial, so adding an inspection library
-# means adding it to this list and accepting its snapshot.
-pinned_packages='gr-inspect-codex gr-inspect-claude'
+if [ "${GOALRAIL_PUBLIC_API_GATE_TESTING:-0}" != 1 ] &&
+  { [ -n "${GOALRAIL_PUBLIC_API_SNAPSHOT_DIR:-}" ] ||
+    [ -n "${GOALRAIL_PUBLIC_API_PACKAGE_LIST:-}" ]; }; then
+  echo "public API gate: test overrides require GOALRAIL_PUBLIC_API_GATE_TESTING=1" >&2
+  exit 2
+fi
 
 actual=$(mktemp "${TMPDIR:-/tmp}/goalrail-public-api.XXXXXX")
 trap 'rm -f "$actual"' EXIT HUP INT TERM
@@ -40,10 +44,28 @@ if [ -n "${GOALRAIL_PUBLIC_API_PACKAGE:-}" ] || [ -n "${GOALRAIL_PUBLIC_API_SNAP
   package=${GOALRAIL_PUBLIC_API_PACKAGE:-gr-inspect-codex}
   check_package \
     "$package" \
-    "${GOALRAIL_PUBLIC_API_SNAPSHOT:-"$repo_root/architecture/public-api/$package.txt"}"
+    "${GOALRAIL_PUBLIC_API_SNAPSHOT:-"$snapshot_dir/$package.txt"}"
   exit 0
 fi
 
-for package in $pinned_packages; do
-  check_package "$package" "$repo_root/architecture/public-api/$package.txt"
-done
+# Otherwise every pinned facade is checked. The list is the single source of
+# truth for which facades are pinned; `scripts/architecture-drift.sh` reads the
+# same file, so the two trials cannot disagree about the pinned surface.
+[ -f "$package_list" ] || {
+  echo "pinned package list is missing: $package_list" >&2
+  exit 2
+}
+
+checked=0
+while IFS= read -r package || [ -n "$package" ]; do
+  case "$package" in
+    ''|\#*) continue ;;
+  esac
+  check_package "$package" "$snapshot_dir/$package.txt"
+  checked=$((checked + 1))
+done <"$package_list"
+
+[ "$checked" -gt 0 ] || {
+  echo "pinned package list is empty: $package_list" >&2
+  exit 2
+}

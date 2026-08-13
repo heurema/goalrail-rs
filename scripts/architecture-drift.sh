@@ -60,8 +60,23 @@ fi
 if [ -n "$public_api_override" ]; then
   [ -f "$public_api_override" ] || fail "public API override is missing: $public_api_override"
   cp "$public_api_override" "$public_api"
-elif ! "$script_dir/generate-public-api.sh" >"$public_api"; then
-  fail "current rustdoc-visible public API is unavailable"
+else
+  # Every pinned facade, read from the same list the public API trial uses, so
+  # the drift snapshot cannot silently cover fewer crates than are pinned.
+  package_list="$root/architecture/public-api/pinned-packages.txt"
+  [ -f "$package_list" ] || fail "pinned package list is missing: $package_list"
+  : >"$public_api"
+  packages_collected=0
+  while IFS= read -r package || [ -n "$package" ]; do
+    case "$package" in
+      ''|\#*) continue ;;
+    esac
+    GOALRAIL_PUBLIC_API_PACKAGE="$package" \
+      "$script_dir/generate-public-api.sh" >>"$public_api" ||
+      fail "current rustdoc-visible public API is unavailable for $package"
+    packages_collected=$((packages_collected + 1))
+  done <"$package_list"
+  test "$packages_collected" -gt 0 || fail "pinned package list is empty: $package_list"
 fi
 
 if ! jq -e '

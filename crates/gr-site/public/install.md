@@ -163,6 +163,16 @@ codex plugin add goalrail@goalrail --json
 ```
 
 The task that performed the update may still have the previous skill
-instructions loaded. Before asking the user to open a new task or restart
-Codex, the agent explains that this reload may itself trigger host
+instructions loaded. The agent prepares an external bootstrap prompt containing
+`expectedVersion` and the exact `expectedSkillManifest` path from the verified
+versioned cache. Before reading or following any Goalrail skill instructions,
+the new task must compare its task-registered Goalrail path with that exact path
+and verify the enclosing plugin manifest version. A mismatch is `BLOCKED` for
+that verification task, not evidence that the update failed.
+
+One new task with that prompt is the normal reload action. After one stale
+registration, the agent may offer at most one additional new task with the same
+bootstrap values. Restart Codex only as a fallback after the repeated
+registration failure. Never say that restart is required after one stale task.
+Before each reload action, the agent explains that it may itself trigger host
 reconciliation and is not a read-only verification step.

@@ -329,10 +329,26 @@ codex plugin add goalrail@goalrail --json
 ```
 
 An unexpected version, source, path, commit, cache change, or pre-command drift
-is `HOST_RECONCILED` or `BLOCKED`; stop instead of retrying. The current task may
-still have the previous skill instructions loaded after either update path.
-Before asking the user to open a new task or restart the client, explain that
-this reload may also trigger Codex host reconciliation; it is not a read-only
+is `HOST_RECONCILED` or `BLOCKED`; stop the current task instead of retrying an
+update command. The current task may still have the previous skill instructions
+loaded after either update path. Before asking for a reload task, construct an
+external bootstrap prompt from the immediate post-command proof. It must include
+`expectedVersion` and the exact `expectedSkillManifest` path under the verified
+versioned cache. The prompt must tell the new task, before reading or following
+any Goalrail skill instructions, to compare its task-registered Goalrail skill
+path with `expectedSkillManifest` and verify that the enclosing plugin manifest
+has `expectedVersion`. It must not choose a path from cache inventory or execute
+the registered skill first.
+
+Use a new task with that external bootstrap prompt as the normal reload action.
+If the registration is missing, the path differs, or the manifest version is
+not `expectedVersion`, return `BLOCKED` for that verification task and report
+stale host registration; do not claim that the update failed or continue into
+the loaded lifecycle instructions. Offer at most one additional new task with
+the same bootstrap values before a client restart. Treat client restart only as
+a fallback after the repeated registration failure; never say it is required
+after one stale task. Explain before each reload action that every new task and
+any restart may also trigger Codex host reconciliation, so none is a read-only
 verification step.
 
 ## Notifications

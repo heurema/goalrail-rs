@@ -143,9 +143,19 @@ plugin outside the approved target or command, report `HOST_RECONCILED` and the
 observed evidence instead.
 
 After a verified plugin install or replacement, explicitly tell the user that
-the current task may still be running the previous skill instructions. Offer a
-new task or client restart as a reload action, but warn that the Codex host may
-also reconcile configured Git marketplaces and plugins during that action.
+the current task may still be running the previous skill instructions. Follow
+the reload contract in `update-discovery.md`: prepare an external bootstrap
+prompt containing `expectedVersion` and the exact `expectedSkillManifest` from
+the verified cache. The new task must validate its task-registered path and the
+enclosing plugin manifest before reading or following any Goalrail skill
+instructions. A mismatch is `BLOCKED` for that verification task, not evidence
+that the update failed.
+
+Use a new task with that prompt as the normal reload action. Offer at most one
+additional new task with the same bootstrap values before treating client
+restart as a fallback. Never say that restart is required after one stale task.
+Warn before each reload action that the new task or restart may also reconcile
+configured Git marketplaces and plugins.
 
 ## Native CLI boundary
 

@@ -15,6 +15,7 @@ update_discovery="$plugin_root/skills/goalrail/references/update-discovery.md"
 homebrew_state="$plugin_root/skills/goalrail/scripts/homebrew-update-state.sh"
 plugin_target="$plugin_root/skills/goalrail/scripts/plugin-update-target.sh"
 public_install="$repo_root/crates/gr-site/public/install.md"
+trials="$repo_root/docs/trials.md"
 remote_smoke="$repo_root/scripts/smoke-goalrail-plugin-remote.sh"
 
 command -v jq >/dev/null 2>&1 || {
@@ -25,6 +26,15 @@ command -v jq >/dev/null 2>&1 || {
 command -v cargo >/dev/null 2>&1 || {
   echo "goalrail plugin test requires cargo" >&2
   exit 1
+}
+
+require_normalized_text() {
+  expected=$1
+  file=$2
+  if ! tr '\n' ' ' <"$file" | tr -s ' ' | grep -F "$expected" >/dev/null; then
+    echo "Goalrail lifecycle contract is missing from $file: $expected" >&2
+    exit 1
+  fi
 }
 
 plugin_version=$(jq -er '.version' "$manifest")
@@ -83,7 +93,7 @@ jq -e --arg version "$plugin_version" '
   and .interface.category == "Developer Tools"
 ' "$manifest" >/dev/null
 
-for file in "$skill" "$index" "$install" "$plugin_lifecycle" "$update_discovery" "$homebrew_state" "$plugin_target" "$public_install"; do
+for file in "$skill" "$index" "$install" "$plugin_lifecycle" "$update_discovery" "$homebrew_state" "$plugin_target" "$public_install" "$trials"; do
   test -s "$file" || {
     echo "goalrail plugin file is missing or empty: $file" >&2
     exit 1
@@ -190,7 +200,16 @@ grep -F 'not run `plugin add`' "$update_discovery" >/dev/null
 grep -F 'calling either list command' "$update_discovery" >/dev/null
 grep -F 'cannot eliminate' "$update_discovery" >/dev/null
 grep -F 'Post-command exact snapshot and cache verification remains mandatory' "$update_discovery" >/dev/null
-grep -F 'open a new task or restart the' "$update_discovery" >/dev/null
+grep -F 'external bootstrap prompt' "$update_discovery" >/dev/null
+grep -F '`expectedVersion`' "$update_discovery" >/dev/null
+grep -F '`expectedSkillManifest`' "$update_discovery" >/dev/null
+require_normalized_text 'before reading or following any Goalrail skill instructions' "$update_discovery"
+require_normalized_text 'Use a new task with that external bootstrap prompt as the normal reload action' "$update_discovery"
+grep -F 'return `BLOCKED` for' "$update_discovery" >/dev/null
+require_normalized_text 'report stale host registration; do not claim that the update failed' "$update_discovery"
+require_normalized_text 'Offer at most one additional new task with the same bootstrap values' "$update_discovery"
+require_normalized_text 'Treat client restart only as a fallback' "$update_discovery"
+require_normalized_text 'never say it is required after one stale task' "$update_discovery"
 grep -F 'Goalrail skill and CLI perform no background update check' "$update_discovery" >/dev/null
 grep -F 'read `update-discovery.md`' "$install" >/dev/null
 grep -F 'follow `update-discovery.md`' "$plugin_lifecycle" >/dev/null
@@ -201,6 +220,14 @@ grep -F 'potentially combined state-changing action' "$plugin_lifecycle" >/dev/n
 grep -F 'do not run `plugin add`' "$plugin_lifecycle" >/dev/null
 grep -F 'scripts/plugin-update-target.sh' "$plugin_lifecycle" >/dev/null
 grep -F 'cannot atomically bind its moving ref' "$plugin_lifecycle" >/dev/null
+grep -F 'external bootstrap' "$plugin_lifecycle" >/dev/null
+grep -F '`expectedVersion`' "$plugin_lifecycle" >/dev/null
+grep -F '`expectedSkillManifest`' "$plugin_lifecycle" >/dev/null
+require_normalized_text 'before reading or following any Goalrail skill instructions' "$plugin_lifecycle"
+require_normalized_text 'new task with that prompt as the normal reload action' "$plugin_lifecycle"
+require_normalized_text 'A mismatch is `BLOCKED` for that verification task' "$plugin_lifecycle"
+require_normalized_text 'Offer at most one additional new task with the same bootstrap values' "$plugin_lifecycle"
+grep -F 'Never say that restart is required after one stale task' "$plugin_lifecycle" >/dev/null
 grep -F 'git -C <tap-root> symbolic-ref --short HEAD' "$public_install" >/dev/null
 grep -F 'git -C <tap-root> rev-parse HEAD' "$public_install" >/dev/null
 grep -F '`channelLag: true`' "$public_install" >/dev/null
@@ -210,6 +237,18 @@ grep -F 'update is complete' "$public_install" >/dev/null
 grep -F '`plugin add` must not be run only after that proof' "$public_install" >/dev/null
 grep -F 'scripts/plugin-update-target.sh' "$public_install" >/dev/null
 grep -F 'does not atomically bind marketplace upgrade' "$public_install" >/dev/null
+grep -F 'external bootstrap prompt' "$public_install" >/dev/null
+grep -F '`expectedVersion`' "$public_install" >/dev/null
+grep -F '`expectedSkillManifest`' "$public_install" >/dev/null
+require_normalized_text 'Before reading or following any Goalrail skill instructions' "$public_install"
+require_normalized_text 'One new task with that prompt is the normal reload action' "$public_install"
+require_normalized_text 'at most one additional new task with the same bootstrap values' "$public_install"
+require_normalized_text 'Restart Codex only as a fallback' "$public_install"
+grep -F 'Never say that restart is required after one stale task' "$public_install" >/dev/null
+require_normalized_text 'does not count as a completed update check' "$trials"
+require_normalized_text 'recorded no `cacheVerified: true` payload proof' "$trials"
+grep -F 'Revisit: after three more real plugin update checks' "$trials" >/dev/null
+require_normalized_text 'revisit after three more completed real plugin update checks' "$trials"
 
 for file in "$update_discovery" "$plugin_lifecycle" "$public_install"; do
   if grep -F 'refresh and plugin application remain two separately approved' "$file" >/dev/null \
@@ -219,6 +258,20 @@ for file in "$update_discovery" "$plugin_lifecycle" "$public_install"; do
     exit 1
   fi
 done
+
+reload_peer_pattern='open a new task or restart( the client| Codex)|[Oo]ffer a new task or (client )?restart'
+for file in "$skill" "$index" "$install" "$update_discovery" "$plugin_lifecycle" "$public_install"; do
+  if tr '\n' ' ' <"$file" | tr -s ' ' | grep -E "$reload_peer_pattern" >/dev/null; then
+    echo "Goalrail lifecycle docs still present restart as a normal reload peer: $file" >&2
+    exit 1
+  fi
+done
+
+if ! printf '%s\n' 'Before asking the user to open a new task or restart' 'Codex.' |
+    tr '\n' ' ' | tr -s ' ' | grep -E "$reload_peer_pattern" >/dev/null; then
+  echo "Goalrail reload fallback guard accepted the old wrapped public wording" >&2
+  exit 1
+fi
 
 if grep -F 'Discovery is read-only.' "$update_discovery" >/dev/null; then
   echo "Goalrail plugin update discovery must not promise an end-to-end read-only Codex lifecycle" >&2

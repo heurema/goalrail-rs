@@ -23,6 +23,19 @@
   `verify:outgoing-rust` recovery command printed by the hook before retrying
   the push. `verify:ci-state` may bridge only a committed edge with no `.rs`
   changes; any Rust source change requires diff-scoped mutation testing.
+- The base of a verified edge is what the remote already holds for the branch
+  being pushed, not `main`. The hook passes Git's own `remote_oid` per ref, so
+  a branch that already exists on the remote is verified from its current
+  remote tip, and only a branch the remote has never seen falls back to the
+  nearest remote-tracking ancestor. Recording a receipt against `main` for a
+  branch that is already pushed produces valid evidence for an edge nobody is
+  pushing, and the hook still refuses. When pre-recording, resolve the base
+  against the remote itself with `git ls-remote <remote> refs/heads/<pushed-ref>`,
+  naming the remote and the ref the push actually targets: a remote-tracking ref
+  such as `origin/<branch>` is a local cache that can be stale, the remote is
+  not always named `origin`, and a refspec may push under a different name.
+  Otherwise let the push fail once and run the exact edge the hook prints, which
+  is authoritative because it is the oid Git sends the hook.
 - Do not commit, push, publish, release, deploy, or perform destructive work
   without explicit owner approval.
 - Before preparing a release candidate, pushing its branch or tag, dispatching

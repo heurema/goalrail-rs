@@ -1,10 +1,11 @@
-use std::{fmt::Write as _, io};
+use std::{fmt::Write as _, io, path::Path};
 
 use gr_inspect_core::format_exit_code;
 
 use crate::{
     Verdict, VersionProbe,
     agents::InstructionScope,
+    app::{CODEX_APP_INFO_PLIST, probe_app_version},
     doctor::DoctorReport,
     inspection::{InspectionProbes, probe_inspection},
     plugins::{PluginInspectionReport, build_plugin_inspection_report, probe_plugins},
@@ -14,6 +15,7 @@ use crate::{
         synthesize_report,
     },
     skills::{ActiveSkillSummary, AssessedPluginSkills, inspect_assessed_plugin_skills},
+    updates::{CodexUpdateReport, inspect_codex_updates as build_codex_update_report},
 };
 
 #[derive(Debug)]
@@ -25,6 +27,7 @@ pub struct InspectionOutcome {
 enum OutcomeReport {
     Complete(Box<CodexInspectionReport>),
     Plugins(Box<PluginInspectionReport>),
+    Updates(Box<CodexUpdateReport>),
     Failure(CodexFailureReport),
 }
 
@@ -33,6 +36,7 @@ impl InspectionOutcome {
         match &self.report {
             OutcomeReport::Complete(report) => report.verdict,
             OutcomeReport::Plugins(report) => report.verdict(),
+            OutcomeReport::Updates(report) => report.verdict,
             OutcomeReport::Failure(report) => report.verdict,
         }
     }
@@ -45,6 +49,7 @@ impl InspectionOutcome {
         match &self.report {
             OutcomeReport::Complete(report) => report.to_pretty_json(),
             OutcomeReport::Plugins(report) => report.to_pretty_json(),
+            OutcomeReport::Updates(report) => report.to_pretty_json(),
             OutcomeReport::Failure(report) => report.to_pretty_json(),
         }
     }
@@ -53,6 +58,7 @@ impl InspectionOutcome {
         match &self.report {
             OutcomeReport::Complete(report) => format_human_report(report),
             OutcomeReport::Plugins(report) => report.to_human(),
+            OutcomeReport::Updates(report) => report.to_human(),
             OutcomeReport::Failure(report) => report
                 .findings
                 .first()
@@ -64,6 +70,7 @@ impl InspectionOutcome {
 
 struct InspectionSummary<'a> {
     version: &'a str,
+    app_version: Option<String>,
     doctor: &'a DoctorReport,
     feature_count: usize,
     installed_plugin_count: usize,
@@ -76,6 +83,12 @@ pub fn inspect_codex() -> InspectionOutcome {
 
 pub fn inspect_codex_plugins() -> InspectionOutcome {
     inspect_plugin_inventory_probe_with(probe_plugins(), inspect_assessed_plugin_skills)
+}
+
+pub fn inspect_codex_updates() -> InspectionOutcome {
+    InspectionOutcome {
+        report: OutcomeReport::Updates(Box::new(build_codex_update_report())),
+    }
 }
 
 #[cfg(test)]
@@ -175,12 +188,22 @@ fn plugin_skill_failure(error: io::Error) -> InspectionOutcome {
 }
 
 fn inspect_version_probe(probe: io::Result<VersionProbe>) -> InspectionOutcome {
-    inspect_version_probe_with(probe, inspect_remaining)
+    inspect_version_probe_with(probe, |version| {
+        inspect_remaining(version, probe_app_version(Path::new(CODEX_APP_INFO_PLIST)))
+    })
 }
 
 fn inspect_version_probe_with(
     probe: io::Result<VersionProbe>,
     inspect_remaining: impl FnOnce(&str) -> InspectionOutcome,
+) -> InspectionOutcome {
+    inspect_version_probe_with_app(probe, None, |version, _| inspect_remaining(version))
+}
+
+fn inspect_version_probe_with_app(
+    probe: io::Result<VersionProbe>,
+    app_version: Option<String>,
+    inspect_remaining: impl FnOnce(&str, Option<String>) -> InspectionOutcome,
 ) -> InspectionOutcome {
     match probe {
         Ok(probe) if probe.timed_out => failure(
@@ -190,7 +213,7 @@ fn inspect_version_probe_with(
             "codex --version timed out after 15 seconds",
         ),
         Ok(probe) if probe.succeeded() => match probe.version_text() {
-            Ok(Some(version)) => inspect_remaining(version),
+            Ok(Some(version)) => inspect_remaining(version, app_version),
             Ok(None) => failure(
                 Verdict::Incomplete,
                 "probe.version.empty_output",
@@ -235,13 +258,17 @@ fn inspect_version_probe_with(
     }
 }
 
-fn inspect_remaining(version: &str) -> InspectionOutcome {
+fn inspect_remaining(version: &str, app_version: Option<String>) -> InspectionOutcome {
     let probes = probe_inspection();
 
-    inspect_doctor(version, &probes)
+    inspect_doctor(version, app_version, &probes)
 }
 
-fn inspect_doctor(version: &str, probes: &InspectionProbes) -> InspectionOutcome {
+fn inspect_doctor(
+    version: &str,
+    app_version: Option<String>,
+    probes: &InspectionProbes,
+) -> InspectionOutcome {
     match &probes.doctor {
         Ok(probe) if probe.timed_out => failure(
             Verdict::Incomplete,
@@ -251,7 +278,7 @@ fn inspect_doctor(version: &str, probes: &InspectionProbes) -> InspectionOutcome
         ),
         Ok(probe) => match probe.report() {
             Ok(report) if doctor_exit_matches_report(probe.exit_code, &report) => {
-                inspect_features(version, &report, probes)
+                inspect_features(version, app_version, &report, probes)
             }
             Ok(_) => failure(
                 Verdict::Incomplete,
@@ -287,6 +314,7 @@ fn doctor_exit_matches_report(exit_code: Option<i32>, report: &DoctorReport) -> 
 
 fn inspect_features(
     version: &str,
+    app_version: Option<String>,
     doctor: &DoctorReport,
     probes: &InspectionProbes,
 ) -> InspectionOutcome {
@@ -312,7 +340,7 @@ fn inspect_features(
                 .filter(|line| !line.trim().is_empty())
                 .count();
 
-            inspect_plugins(version, doctor, feature_count, probes)
+            inspect_plugins(version, app_version, doctor, feature_count, probes)
         }
         Ok(probe) => failure(
             Verdict::Incomplete,
@@ -334,6 +362,7 @@ fn inspect_features(
 
 fn inspect_plugins(
     version: &str,
+    app_version: Option<String>,
     doctor: &DoctorReport,
     feature_count: usize,
     probes: &InspectionProbes,
@@ -356,6 +385,7 @@ fn inspect_plugins(
 
                 let summary = InspectionSummary {
                     version,
+                    app_version,
                     doctor,
                     feature_count,
                     installed_plugin_count: installed_count,
@@ -524,6 +554,7 @@ fn inspect_skills(
             catalog_errors,
         }) => complete(synthesize_report(CodexInspectionFacts {
             version: summary.version,
+            app_version: summary.app_version.as_deref(),
             doctor: summary.doctor,
             feature_count: summary.feature_count,
             installed_plugin_count: summary.installed_plugin_count,
@@ -580,6 +611,12 @@ fn format_human_report(report: &CodexInspectionReport) -> String {
     let mut output = String::new();
 
     writeln!(output, "Codex version: {}", report.codex_version).expect("writing to String");
+    writeln!(
+        output,
+        "Codex app version: {}",
+        report.app_version.as_deref().unwrap_or("unavailable")
+    )
+    .expect("writing to String");
     writeln!(
         output,
         "Codex doctor: {} ({} checks)",
@@ -800,6 +837,7 @@ mod tests {
     fn summary(doctor: &DoctorReport) -> InspectionSummary<'_> {
         InspectionSummary {
             version: "codex-cli 0.147.0",
+            app_version: None,
             doctor,
             feature_count: 2,
             installed_plugin_count: 2,
@@ -843,7 +881,7 @@ mod tests {
     #[test]
     fn exposes_complete_and_failure_outcomes_through_the_public_contract() {
         let doctor = clean_doctor();
-        let complete = inspect_features("codex-cli 0.147.0", &doctor, &successful_probes());
+        let complete = inspect_features("codex-cli 0.147.0", None, &doctor, &successful_probes());
 
         assert_eq!(complete.verdict(), Verdict::BaselineOk);
         assert!(!complete.is_failure());
@@ -1009,6 +1047,33 @@ mod tests {
         assert_failure(failed, Verdict::Incomplete, "probe.version.failed");
     }
 
+    #[test]
+    fn carries_the_injected_app_version_into_the_summary_contract() {
+        let outcome = inspect_version_probe_with_app(
+            Ok(VersionProbe {
+                stdout: b"codex-cli 0.147.0\n".to_vec(),
+                stderr: Vec::new(),
+                exit_code: Some(0),
+                duration: Duration::ZERO,
+                timed_out: false,
+            }),
+            Some("26.715.61943".to_owned()),
+            |version, app_version| inspect_doctor(version, app_version, &successful_probes()),
+        );
+
+        let json = outcome
+            .to_pretty_json()
+            .expect("summary with an app version should serialize");
+        let value: serde_json::Value =
+            serde_json::from_str(&json).expect("summary should be valid JSON");
+        assert_eq!(value["appVersion"], "26.715.61943");
+        assert!(
+            outcome
+                .to_human()
+                .contains("Codex app version: 26.715.61943")
+        );
+    }
+
     fn expect_complete(outcome: InspectionOutcome) -> CodexInspectionReport {
         let OutcomeReport::Complete(report) = outcome.report else {
             panic!("expected complete outcome");
@@ -1033,7 +1098,7 @@ mod tests {
         let mut probes = successful_probes();
         probes.doctor.as_mut().expect("doctor probe").timed_out = true;
         assert_failure(
-            inspect_doctor("codex-cli 0.147.0", &probes),
+            inspect_doctor("codex-cli 0.147.0", None, &probes),
             Verdict::Incomplete,
             "probe.doctor.timeout",
         );
@@ -1042,7 +1107,7 @@ mod tests {
         let mut probes = successful_probes();
         probes.features.as_mut().expect("features probe").timed_out = true;
         assert_failure(
-            inspect_features("codex-cli 0.147.0", &doctor, &probes),
+            inspect_features("codex-cli 0.147.0", None, &doctor, &probes),
             Verdict::Incomplete,
             "probe.features.timeout",
         );
@@ -1050,7 +1115,7 @@ mod tests {
         let mut probes = successful_probes();
         probes.plugins.as_mut().expect("plugins probe").timed_out = true;
         assert_failure(
-            inspect_plugins("codex-cli 0.147.0", &doctor, 2, &probes),
+            inspect_plugins("codex-cli 0.147.0", None, &doctor, 2, &probes),
             Verdict::Incomplete,
             "probe.plugins.timeout",
         );
@@ -1110,7 +1175,7 @@ mod tests {
         probes.doctor.as_mut().expect("doctor probe").exit_code = Some(1);
 
         assert_failure(
-            inspect_doctor("codex-cli 0.147.0", &probes),
+            inspect_doctor("codex-cli 0.147.0", None, &probes),
             Verdict::Incomplete,
             "probe.doctor.failed",
         );
@@ -1123,7 +1188,7 @@ mod tests {
         let mut probes = successful_probes();
         probes.features.as_mut().expect("features probe").exit_code = Some(2);
         assert_failure(
-            inspect_features("codex-cli 0.147.0", &doctor, &probes),
+            inspect_features("codex-cli 0.147.0", None, &doctor, &probes),
             Verdict::Incomplete,
             "probe.features.failed",
         );
@@ -1131,7 +1196,7 @@ mod tests {
         let mut probes = successful_probes();
         probes.plugins.as_mut().expect("plugins probe").exit_code = Some(2);
         assert_failure(
-            inspect_plugins("codex-cli 0.147.0", &doctor, 2, &probes),
+            inspect_plugins("codex-cli 0.147.0", None, &doctor, 2, &probes),
             Verdict::Incomplete,
             "probe.plugins.failed",
         );
@@ -1168,6 +1233,7 @@ mod tests {
         let doctor = clean_doctor();
         let report = expect_complete(inspect_features(
             "codex-cli 0.147.0",
+            None,
             &doctor,
             &successful_probes(),
         ));
@@ -1185,11 +1251,12 @@ mod tests {
             duration: Duration::ZERO,
             timed_out: false,
         });
-        let report = expect_complete(inspect_doctor("codex-cli 0.147.0", &probes));
+        let report = expect_complete(inspect_doctor("codex-cli 0.147.0", None, &probes));
 
         let output = format_human_report(&report);
 
         assert!(output.contains("Codex version: codex-cli 0.147.0"));
+        assert!(output.contains("Codex app version: unavailable"));
         assert!(output.contains("Codex features: observed (2 rows)"));
         assert!(output.contains("Codex plugins: 2 installed, 1 enabled"));
         assert!(output.contains("Codex skills: 1 active (0 catalog errors)"));

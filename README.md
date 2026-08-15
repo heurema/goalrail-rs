@@ -16,6 +16,7 @@ cargo run -p gr -- inspect codex --json
 cargo run -p gr -- inspect codex skills --actionable --json
 cargo run -p gr -- inspect codex skills --json
 cargo run -p gr -- inspect codex plugins --json
+cargo run -p gr -- inspect codex updates --json
 cargo run -p gr -- inspect claude
 cargo run -p gr -- inspect claude --json
 ```
@@ -24,6 +25,25 @@ cargo run -p gr -- inspect claude --json
 instructions, plugins, the active skill count, MCP configuration,
 marketplaces, and relevant project trust state. It returns one of four
 verdicts:
+
+The summary reports `codexVersion` from the native CLI and `appVersion` from
+`/Applications/Codex.app/Contents/Info.plist` (`CFBundleShortVersionString`).
+`appVersion` is `null` when the desktop app is not installed or its metadata is
+not available; that absence does not change the inspection verdict.
+
+`gr inspect codex updates --json` is a separate, explicit network request. It
+compares the installed Codex CLI semantic version with the official `latest`
+metadata for `@openai/codex` at `registry.npmjs.org`. The probe uses the
+existing `curl` executable with bounded network and process timeouts; missing,
+unreachable, or invalid source data returns `INCOMPLETE`. Availability states
+report discovery only and never authorize an update.
+
+The desktop app channel reports its installed version, but leaves
+`availableVersion` and `source` as `null`, with `freshness: UNVERIFIED`, until
+an official machine-readable latest-version source is verified. The command
+does not scan issues, infer whether an update is safe, launch an updater, or
+change configuration. Ordinary `gr inspect codex` remains local and only
+advertises this opt-in drilldown.
 
 | Verdict | Exit code | Meaning |
 | --- | ---: | --- |

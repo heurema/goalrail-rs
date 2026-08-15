@@ -15,3 +15,4 @@ pub fn gr_inspect_codex::inspect_codex() -> gr_inspect_codex::InspectionOutcome
 pub fn gr_inspect_codex::inspect_codex_plugins() -> gr_inspect_codex::InspectionOutcome
 pub fn gr_inspect_codex::inspect_codex_skill_actions() -> gr_inspect_codex::SkillsInspectionOutcome
 pub fn gr_inspect_codex::inspect_codex_skills() -> gr_inspect_codex::SkillsInspectionOutcome
+pub fn gr_inspect_codex::inspect_codex_updates() -> gr_inspect_codex::InspectionOutcome

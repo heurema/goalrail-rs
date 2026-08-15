@@ -489,6 +489,11 @@ fn reports_project_and_instruction_sources_from_the_fixture() {
         report["drilldowns"][1]["argv"],
         serde_json::json!(["gr", "inspect", "codex", "plugins", "--json"])
     );
+    assert_eq!(report["drilldowns"][2]["section"], "updates");
+    assert_eq!(
+        report["drilldowns"][2]["argv"],
+        serde_json::json!(["gr", "inspect", "codex", "updates", "--json"])
+    );
 }
 
 #[test]
@@ -523,6 +528,79 @@ fn preserves_human_error_and_clap_usage_exit_contracts() {
 
     assert_eq!(usage.status.code(), Some(2));
     assert!(usage_stderr.contains("Usage:"));
+}
+
+#[test]
+fn reports_codex_cli_update_availability_without_claiming_an_app_latest_version() {
+    let tree = TestDirectory::new();
+    let fake_bin = tree.directory("fake-bin");
+    let codex_home = tree.directory("codex-home");
+    let project = tree.directory("project");
+    tree.directory("project/.git");
+    write_fake_codex(&fake_bin);
+    write_fake_curl(&fake_bin);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_gr"))
+        .args(["inspect", "codex", "updates", "--json"])
+        .current_dir(&project)
+        .env("PATH", &fake_bin)
+        .env("CODEX_HOME", &codex_home)
+        .output()
+        .expect("gr should run the updates drilldown");
+    let stdout = assert_report(output, 0, "BASELINE_OK");
+    let report: serde_json::Value =
+        serde_json::from_str(&stdout).expect("updates output should be JSON");
+
+    assert_eq!(report["kind"], "updates");
+    assert_eq!(report["cli"]["installedVersion"], "0.147.0");
+    assert_eq!(report["cli"]["availableVersion"], "0.148.0");
+    assert_eq!(report["cli"]["freshness"], "FRESH");
+    assert_eq!(report["cli"]["availability"], "UPDATE_AVAILABLE");
+    assert_eq!(report["app"]["availableVersion"], serde_json::Value::Null);
+    assert_eq!(report["app"]["source"], serde_json::Value::Null);
+    assert_eq!(report["app"]["freshness"], "UNVERIFIED");
+    assert!(matches!(
+        report["app"]["availability"].as_str(),
+        Some("UNKNOWN" | "NOT_INSTALLED")
+    ));
+    assert_eq!(
+        report["evidenceLimitations"].as_array().map(Vec::len),
+        Some(1)
+    );
+
+    let failed = Command::new(env!("CARGO_BIN_EXE_gr"))
+        .args(["inspect", "codex", "--json", "updates"])
+        .current_dir(&project)
+        .env("PATH", &fake_bin)
+        .env("CODEX_HOME", &codex_home)
+        .env("FAKE_CASE", "updates-source-fail")
+        .output()
+        .expect("gr should report an unavailable registry source");
+    let stdout = assert_report(failed, 3, "INCOMPLETE");
+    let report: serde_json::Value =
+        serde_json::from_str(&stdout).expect("failed updates output should be JSON");
+    assert_eq!(report["kind"], "updates");
+    assert_eq!(report["cli"]["availability"], "UNKNOWN");
+    assert_eq!(report["cli"]["freshness"], "UNVERIFIED");
+    assert_eq!(report["findings"][0]["code"], "updates.cli.source_failed");
+
+    let invalid = Command::new(env!("CARGO_BIN_EXE_gr"))
+        .args(["inspect", "codex", "updates", "--json"])
+        .current_dir(&project)
+        .env("PATH", &fake_bin)
+        .env("CODEX_HOME", &codex_home)
+        .env("FAKE_CASE", "updates-source-invalid")
+        .output()
+        .expect("gr should reject invalid registry metadata");
+    let stdout = assert_report(invalid, 3, "INCOMPLETE");
+    let report: serde_json::Value =
+        serde_json::from_str(&stdout).expect("invalid-source report should be JSON");
+    assert_eq!(report["cli"]["availability"], "UNKNOWN");
+    assert_eq!(report["cli"]["freshness"], "UNVERIFIED");
+    assert_eq!(
+        report["findings"][0]["code"],
+        "updates.cli.source_invalid_json"
+    );
 }
 
 fn run_gr(bin_path: &Path, codex_home: &Path, current_dir: &Path, fixture: Option<&str>) -> Output {
@@ -587,7 +665,7 @@ case "$1" in
       version-empty) printf '\n' ;;
       version-invalid-utf8) printf '\377' ;;
       version-signal) kill -TERM "$$" ;;
-      *) printf '%s\n' 'codex-cli test' ;;
+      *) printf '%s\n' 'codex-cli 0.147.0' ;;
     esac
     ;;
   doctor)
@@ -677,4 +755,29 @@ esac
         .permissions();
     permissions.set_mode(0o755);
     fs::set_permissions(path, permissions).expect("fake codex should be executable");
+}
+
+fn write_fake_curl(bin_path: &Path) {
+    let path = bin_path.join("curl");
+    fs::write(
+        &path,
+        r#"#!/bin/sh
+if [ "${1:-}" != '--disable' ]; then
+  printf '%s\n' 'curl config loading must be disabled' >&2
+  exit 97
+fi
+case "$FAKE_CASE" in
+  updates-source-fail) exit 22 ;;
+  updates-source-invalid) printf '%s\n' 'not-json' ;;
+  *) printf '%s\n' '{"version":"0.148.0"}' ;;
+esac
+"#,
+    )
+    .expect("fake curl should be written");
+
+    let mut permissions = fs::metadata(&path)
+        .expect("fake curl metadata should exist")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(path, permissions).expect("fake curl should be executable");
 }

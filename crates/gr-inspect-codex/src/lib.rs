@@ -1,6 +1,7 @@
 #![deny(unreachable_pub)]
 
 mod agents;
+mod app;
 mod doctor;
 mod features;
 mod inspection;
@@ -9,6 +10,7 @@ mod mcp;
 mod plugins;
 mod report;
 mod skills;
+mod updates;
 mod use_case;
 
 use std::{io, str::Utf8Error, time::Duration};
@@ -17,7 +19,9 @@ use gr_inspect_core::run_bounded;
 
 pub(crate) use gr_inspect_core::Verdict;
 pub use skills::{SkillsInspectionOutcome, inspect_codex_skill_actions, inspect_codex_skills};
-pub use use_case::{InspectionOutcome, inspect_codex, inspect_codex_plugins};
+pub use use_case::{
+    InspectionOutcome, inspect_codex, inspect_codex_plugins, inspect_codex_updates,
+};
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 

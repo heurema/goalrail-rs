@@ -128,9 +128,10 @@ and [decision 0008](docs/decisions/0008-enforce-skill-assessment-crate-boundary.
 
 - AD-1: `gr` parses each command, invokes one inspection use case, renders its
   opaque outcome, and maps the verdict to an exit code. It does not access probes.
-- AD-2: the summary, skills, and plugins use cases inside `gr-inspect-codex` and
-  the summary use case inside `gr-inspect-claude` own probe sequencing, failure
-  classification, outcome construction, and report formatting.
+- AD-2: the summary, skills, plugins, and updates use cases inside
+  `gr-inspect-codex` and the summary use case inside `gr-inspect-claude` own
+  probe sequencing, failure classification, outcome construction, and report
+  formatting.
 - AD-3: Cargo metadata shows only the owned dependency edges
   `gr -> gr-inspect-codex`, `gr -> gr-inspect-claude`, `gr -> gr-inspect-core`,
   `gr-inspect-codex -> gr-inspect-core`,
@@ -142,7 +143,7 @@ and [decision 0008](docs/decisions/0008-enforce-skill-assessment-crate-boundary.
   adapter imports it from there rather than through a re-export. Probe and
   report internals are `pub(crate)`, and `#![deny(unreachable_pub)]` rejects
   accidental unreachable public items. The `architecture:public-api` trial pins
-  both inspection facades, `gr-inspect-codex` at 17 items and
+  both inspection facades, `gr-inspect-codex` at 18 items and
   `gr-inspect-claude` at 8; a facade absent from the trial's package list is not
   checked, so adding an inspection library means adding it there.
 - AD-5: `gr-site` has no owned dependency edge and its checked-in HTML owns the

@@ -17,6 +17,7 @@ pub(crate) enum ReportKind {
     Summary,
     Skills,
     Plugins,
+    Updates,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -165,6 +166,7 @@ pub(crate) struct CodexInspectionReport {
     pub(crate) kind: ReportKind,
     pub(crate) verdict: Verdict,
     pub(crate) codex_version: String,
+    pub(crate) app_version: Option<String>,
     pub(crate) doctor: DoctorSummary,
     pub(crate) features: FeatureSummary,
     pub(crate) plugins: PluginSummary,
@@ -184,6 +186,7 @@ impl CodexInspectionReport {
 
 pub(crate) struct CodexInspectionFacts<'a> {
     pub(crate) version: &'a str,
+    pub(crate) app_version: Option<&'a str>,
     pub(crate) doctor: &'a DoctorReport,
     pub(crate) feature_count: usize,
     pub(crate) installed_plugin_count: usize,
@@ -289,6 +292,7 @@ pub(crate) fn synthesize_report(facts: CodexInspectionFacts<'_>) -> CodexInspect
         kind: ReportKind::Summary,
         verdict,
         codex_version: facts.version.to_owned(),
+        app_version: facts.app_version.map(str::to_owned),
         doctor: DoctorSummary {
             status: doctor_status,
             check_count: facts.doctor.checks.len(),
@@ -338,6 +342,12 @@ fn codex_drilldowns() -> Vec<Drilldown> {
                 .map(str::to_owned)
                 .to_vec(),
         },
+        Drilldown {
+            section: "updates".to_owned(),
+            argv: ["gr", "inspect", "codex", "updates", "--json"]
+                .map(str::to_owned)
+                .to_vec(),
+        },
     ]
 }
 
@@ -381,6 +391,7 @@ mod tests {
     ) -> CodexInspectionFacts<'a> {
         CodexInspectionFacts {
             version: "codex-cli 0.147.0",
+            app_version: None,
             doctor,
             feature_count: 10,
             installed_plugin_count: 2,
@@ -438,6 +449,11 @@ mod tests {
         assert_eq!(
             report.drilldowns[1].argv,
             ["gr", "inspect", "codex", "plugins", "--json"]
+        );
+        assert_eq!(report.drilldowns[2].section, "updates");
+        assert_eq!(
+            report.drilldowns[2].argv,
+            ["gr", "inspect", "codex", "updates", "--json"]
         );
         assert!(report.findings.is_empty());
     }

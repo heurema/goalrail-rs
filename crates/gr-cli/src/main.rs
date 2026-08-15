@@ -9,6 +9,7 @@ use gr_inspect_codex::{
     inspect_codex_plugins as run_codex_plugins_inspection,
     inspect_codex_skill_actions as run_codex_skill_actions_inspection,
     inspect_codex_skills as run_codex_skills_inspection,
+    inspect_codex_updates as run_codex_updates_inspection,
 };
 use gr_inspect_core::Verdict;
 
@@ -53,6 +54,10 @@ enum CodexSection {
         #[arg(long)]
         json: bool,
     },
+    Updates {
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn main() -> ExitCode {
@@ -82,6 +87,13 @@ fn main() -> ExitCode {
                     section: Some(CodexSection::Plugins { json: inner_json }),
                 },
         } => inspect_codex_plugins(outer_json || inner_json),
+        Command::Inspect {
+            target:
+                InspectTarget::Codex {
+                    json: outer_json,
+                    section: Some(CodexSection::Updates { json: inner_json }),
+                },
+        } => inspect_codex_updates(outer_json || inner_json),
         Command::Inspect {
             target: InspectTarget::Claude { json },
         } => inspect_claude(json),
@@ -119,6 +131,13 @@ fn render_claude_outcome(json: bool, outcome: &ClaudeInspectionOutcome) -> Verdi
 fn inspect_codex_plugins(json: bool) -> ExitCode {
     let outcome = run_codex_plugins_inspection();
     let verdict = render_outcome("gr inspect codex plugins", json, &outcome);
+
+    ExitCode::from(verdict.exit_code())
+}
+
+fn inspect_codex_updates(json: bool) -> ExitCode {
+    let outcome = run_codex_updates_inspection();
+    let verdict = render_outcome("gr inspect codex updates", json, &outcome);
 
     ExitCode::from(verdict.exit_code())
 }
@@ -310,6 +329,33 @@ mod tests {
                 target: InspectTarget::Codex {
                     json: true,
                     section: Some(CodexSection::Plugins { json: false }),
+                }
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_updates_drilldown_with_inner_and_outer_json_output() {
+        let inner = Cli::try_parse_from(["gr", "inspect", "codex", "updates", "--json"])
+            .expect("command should parse");
+        assert!(matches!(
+            inner.command,
+            Command::Inspect {
+                target: InspectTarget::Codex {
+                    json: false,
+                    section: Some(CodexSection::Updates { json: true }),
+                }
+            }
+        ));
+
+        let outer = Cli::try_parse_from(["gr", "inspect", "codex", "--json", "updates"])
+            .expect("command should parse");
+        assert!(matches!(
+            outer.command,
+            Command::Inspect {
+                target: InspectTarget::Codex {
+                    json: true,
+                    section: Some(CodexSection::Updates { json: false }),
                 }
             }
         ));

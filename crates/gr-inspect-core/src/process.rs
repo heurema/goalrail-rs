@@ -1,17 +1,28 @@
 use std::{
     io::{self, Read},
     process::{Command, Stdio},
-    sync::mpsc::{self, Receiver, RecvTimeoutError},
+    sync::mpsc::{self, Receiver, RecvTimeoutError, Sender},
     thread,
     time::{Duration, Instant},
 };
 
 const OUTPUT_DRAIN_GRACE: Duration = Duration::from_millis(100);
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
+const READ_BUFFER_SIZE: usize = 8_192;
 
-/// One captured stream, or `None` when its reader did not finish in time.
-type DrainedStream = Option<Vec<u8>>;
-type StreamReader = Receiver<io::Result<Vec<u8>>>;
+/// Bytes observed from one output stream and whether the reader reached EOF.
+#[derive(Debug, PartialEq, Eq)]
+struct DrainedStream {
+    bytes: Vec<u8>,
+    complete: bool,
+}
+
+enum ReaderEvent {
+    Chunk(Vec<u8>),
+    Finished(io::Result<()>),
+}
+
+type StreamReader = Receiver<ReaderEvent>;
 
 #[derive(Debug)]
 pub struct ProcessOutput {
@@ -66,8 +77,8 @@ pub fn run_bounded(program: &str, args: &[&str], timeout: Duration) -> io::Resul
     timed_out |= output_drain_incomplete(&stdout, &stderr);
 
     Ok(ProcessOutput {
-        stdout: stdout.unwrap_or_default(),
-        stderr: stderr.unwrap_or_default(),
+        stdout: stdout.bytes,
+        stderr: stderr.bytes,
         exit_code: status.code(),
         duration: started_at.elapsed(),
         timed_out,
@@ -95,9 +106,8 @@ fn output_drain_deadline(
 /// Collect both output streams, giving each reader its own drain window.
 ///
 /// A single shared deadline lets a slow first read consume the whole budget and
-/// starve the second stream, which returns as if the process had produced no
-/// output on it. Each wait therefore gets its own window, which keeps the total
-/// bounded at the timeout plus one grace period per stream.
+/// starve the second stream. Each wait therefore gets its own window, which
+/// keeps the total bounded at the timeout plus one grace period per stream.
 fn drain_readers(
     stdout_reader: &StreamReader,
     stderr_reader: &StreamReader,
@@ -118,30 +128,71 @@ fn drain_readers(
 }
 
 fn output_drain_incomplete(stdout: &DrainedStream, stderr: &DrainedStream) -> bool {
-    stdout.is_none() || stderr.is_none()
+    !stdout.complete || !stderr.complete
 }
 
-fn read_all(mut stream: impl Read) -> io::Result<Vec<u8>> {
-    let mut bytes = Vec::new();
-    stream.read_to_end(&mut bytes)?;
-    Ok(bytes)
+fn read_stream(mut stream: impl Read, sender: Sender<ReaderEvent>) {
+    let mut buffer = [0; READ_BUFFER_SIZE];
+
+    loop {
+        match stream.read(&mut buffer) {
+            Ok(0) => {
+                let _ = sender.send(ReaderEvent::Finished(Ok(())));
+                return;
+            }
+            Ok(read) => {
+                if sender
+                    .send(ReaderEvent::Chunk(buffer[..read].to_vec()))
+                    .is_err()
+                {
+                    return;
+                }
+            }
+            Err(error) => {
+                let _ = sender.send(ReaderEvent::Finished(Err(error)));
+                return;
+            }
+        }
+    }
 }
 
 fn spawn_reader(stream: impl Read + Send + 'static) -> StreamReader {
     let (sender, receiver) = mpsc::channel();
     thread::spawn(move || {
-        let _ = sender.send(read_all(stream));
+        read_stream(stream, sender);
     });
     receiver
 }
 
 fn receive_reader(receiver: &StreamReader, deadline: Instant) -> io::Result<DrainedStream> {
-    let remaining = deadline.saturating_duration_since(Instant::now());
-    match receiver.recv_timeout(remaining) {
-        Ok(result) => result.map(Some),
-        Err(RecvTimeoutError::Timeout) => Ok(None),
-        Err(RecvTimeoutError::Disconnected) => {
-            Err(io::Error::other("process output reader panicked"))
+    let mut bytes = Vec::new();
+
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Ok(DrainedStream {
+                bytes,
+                complete: false,
+            });
+        }
+        match receiver.recv_timeout(remaining) {
+            Ok(ReaderEvent::Chunk(chunk)) => bytes.extend(chunk),
+            Ok(ReaderEvent::Finished(Ok(()))) => {
+                return Ok(DrainedStream {
+                    bytes,
+                    complete: true,
+                });
+            }
+            Ok(ReaderEvent::Finished(Err(error))) => return Err(error),
+            Err(RecvTimeoutError::Timeout) => {
+                return Ok(DrainedStream {
+                    bytes,
+                    complete: false,
+                });
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(io::Error::other("process output reader panicked"));
+            }
         }
     }
 }
@@ -189,11 +240,14 @@ mod tests {
         let (prompt_sender, prompt_reader) = mpsc::channel();
         thread::spawn(move || {
             thread::sleep(OUTPUT_DRAIN_GRACE * 3);
-            let _ = slow_sender.send(Ok(b"late".to_vec()));
+            let _ = slow_sender.send(ReaderEvent::Finished(Ok(())));
         });
         prompt_sender
-            .send(Ok(b"stderr".to_vec()))
+            .send(ReaderEvent::Chunk(b"stderr".to_vec()))
             .expect("the second stream is ready before the drain starts");
+        prompt_sender
+            .send(ReaderEvent::Finished(Ok(())))
+            .expect("the second stream should finish before the drain starts");
 
         let started_at = Instant::now();
         let (stdout, stderr) = drain_readers(
@@ -205,19 +259,69 @@ mod tests {
         )
         .expect("draining should not fail");
 
-        assert_eq!(stdout, None);
-        assert_eq!(stderr, Some(b"stderr".to_vec()));
+        assert_eq!(
+            stdout,
+            DrainedStream {
+                bytes: Vec::new(),
+                complete: false,
+            }
+        );
+        assert_eq!(
+            stderr,
+            DrainedStream {
+                bytes: b"stderr".to_vec(),
+                complete: true,
+            }
+        );
     }
 
     #[test]
     fn treats_either_missing_output_reader_as_incomplete() {
-        let present = Some(Vec::new());
-        let missing = None;
+        let present = DrainedStream {
+            bytes: Vec::new(),
+            complete: true,
+        };
+        let incomplete = DrainedStream {
+            bytes: Vec::new(),
+            complete: false,
+        };
 
         assert!(!output_drain_incomplete(&present, &present));
-        assert!(output_drain_incomplete(&missing, &present));
-        assert!(output_drain_incomplete(&present, &missing));
-        assert!(output_drain_incomplete(&missing, &missing));
+        assert!(output_drain_incomplete(&incomplete, &present));
+        assert!(output_drain_incomplete(&present, &incomplete));
+        assert!(output_drain_incomplete(&incomplete, &incomplete));
+    }
+
+    #[test]
+    fn retains_partial_output_when_the_reader_misses_the_deadline() {
+        let (sender, receiver) = mpsc::channel();
+        sender
+            .send(ReaderEvent::Chunk(b"ready".to_vec()))
+            .expect("the reader should receive output before its deadline");
+        thread::spawn(move || {
+            thread::sleep(OUTPUT_DRAIN_GRACE * 3);
+            let _ = sender.send(ReaderEvent::Finished(Ok(())));
+        });
+
+        let output = receive_reader(&receiver, Instant::now() + OUTPUT_DRAIN_GRACE)
+            .expect("partial output should remain available");
+
+        assert_eq!(output.bytes, b"ready");
+        assert!(!output.complete);
+    }
+
+    #[test]
+    fn does_not_read_queued_output_after_the_deadline() {
+        let (sender, receiver) = mpsc::channel();
+        sender
+            .send(ReaderEvent::Chunk(b"late".to_vec()))
+            .expect("the test should queue the late chunk");
+
+        let output = receive_reader(&receiver, Instant::now())
+            .expect("an expired reader deadline should remain bounded");
+
+        assert!(output.bytes.is_empty());
+        assert!(!output.complete);
     }
 
     #[test]

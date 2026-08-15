@@ -1,5 +1,5 @@
-# Goalrail v0.3.10
+# Goalrail v0.3.11
 
-- Fixed the Goalrail plugin reload fallback flow after an update.
-- Added exact bootstrap-path and manifest-version validation before using reloaded skill instructions.
-- Clarified bounded reload fallback behavior and regression coverage.
+- Report the installed Codex desktop app version separately from the CLI version.
+- Add opt-in Codex CLI update discovery with bounded registry checks.
+- Keep desktop app update availability explicitly unverified until an official source exists.

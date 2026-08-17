@@ -21,9 +21,9 @@ remove the evidence with the trial if it has no durable value.
 
 - Owner: [decision 0017](decisions/0017-trial-chat-native-development-intent.md)
 - Added: `2026-08-17`
-- Revisit: after the first protocol-v4 invalid pair or hard regression, or when
-  both remaining decision-bearing protocol-v4 pairs have completed.
-- Current decision: `TRIAL` under protocol v4 for contract work only; no v4
+- Revisit: after the final protocol-v5 attempt, a protocol-v5 hard regression,
+  or an owner decision to stop before case 005.
+- Current decision: `TRIAL` under protocol v5 for contract work only; no v5
   case is reserved or authorized for live execution.
 
 The source canary keeps one focused `goalrail-intent` skill as an isolated
@@ -36,13 +36,15 @@ recognize future model names or prove model behavior.
 
 The released plugin and marketplace remain unchanged and pinned to `v0.3.11`.
 Record only preselected paired cases where fixture availability is the sole
-changed dimension. Protocol v4 freezes exact launcher-controlled native
-settings and distinguishes them from instructed and independently observed
-process limits. It does not call requested model aliases or accepted CLI flags
-actual backend readbacks. An unverifiable pair is `INVALID`, consumes one
-attempt after packet freeze, and contributes no outcome evidence. Earlier
-protocol verdicts remain immutable and cannot supply protocol-v4 outcome
-evidence.
+changed dimension. Protocol v5 retains protocol v4's exact launcher-controlled
+native settings and distinguishes them from instructed and independently
+observed process limits. It adds explicit treatment parent-directory
+accounting, tracked-only Git status, complete pre/post seed manifests, sanitized
+Git probes, and explicit administrative-state receipts. It does not call
+requested model aliases or accepted CLI flags actual backend readbacks. An
+unverifiable pair is `INVALID`, consumes one attempt after packet freeze, and
+contributes no outcome evidence. Earlier protocol verdicts remain immutable and
+cannot supply protocol-v5 outcome evidence.
 
 ### Case 001: timeout output routine fix
 
@@ -291,6 +293,108 @@ evidence.
   regression.
 - No v4 case, packet, writer, worktree, model invocation, or real-session read
   was created while adopting this revision. The fixture, released plugin,
+  marketplace, Rust workspace, and model-routing policy remain unchanged.
+
+### Case 004: architecture drift baseline decision
+
+- Preflight date: `2026-08-17`.
+- Classification: `DECISION_BEARING` under protocol v4.
+- Intent: independently review the current architecture-drift baseline decision,
+  preserve advisory `REVIEW` and all nine deltas, compare options A, B, and C,
+  and keep ratchet acceptance and baseline replacement under owner authority.
+- Frozen repository: commit
+  `489d8d59410fef2d28ace3a7d0a444edcb99bb5c`, tree
+  `d8ae8878aac045af9068898aa1093e5bc2617f1b`.
+- Independent acceptance owner:
+  `01a00f53-ee1a-7c32-b740-5e6af86b4e3f`.
+- Frozen packet: local Git evidence path
+  `.git/goalrail/intent-canary/case-004/evaluator-packet.json`, SHA-256
+  `33442d002fea28255659010796ef25bbf2c3b91755012f4feacb5a877e2143a1`.
+  The detached freeze activation receipt is
+  `.git/goalrail/intent-canary/case-004-activation/freeze-receipt.json`,
+  SHA-256
+  `00eacd49f0b4c24d040c786f27d317d2977c86243b84ff3d6c0dc9ac9b963833`.
+  The terminal launch-feasibility receipt is
+  `.git/goalrail/intent-canary/case-004-result/launch-feasibility.json`,
+  SHA-256
+  `0082187552b49b28e83253b557476501dd479d2a050a072cad945e84320e1717`.
+  `python3 scripts/verify-goalrail-intent-case-004-receipts.py` is the mandatory
+  local closure check for all three files. It verifies their exact bytes,
+  case/protocol/schema identities, terminal `INVALID_PRELAUNCH` verdict, attempt
+  accounting, every no-launch field, all six canonical artifact links, and the
+  accepted/candidate/terminal manifest links. It also re-reads all six canonical
+  artifacts and the freeze-candidate manifest and verifies exact byte counts and
+  SHA-256 values. It parses the freeze-candidate manifest as JSON and requires
+  strict JSON types and exact values for its schema, case, protocol, inactive
+  status, and no-launch candidate flags. Default Git-common-directory discovery
+  removes every inherited `GIT_*` variable before `git rev-parse`; only explicit
+  `--evidence-root` can override the evidence root. Missing local evidence fails;
+  its portable `--self-test` in CI does not replace this check.
+- Launch authority was granted, but deterministic preflight stopped before seed
+  creation. The frozen complete-manifest rule allowed only two file differences
+  while treatment required three absent parent directories plus those files.
+  The treatment files were also untracked and not ignored, contradicting the
+  frozen requirement that plain `git status --porcelain=v1` be empty.
+- Terminal outcome: `INVALID_PRELAUNCH`; no seed, experiment worktree, writer,
+  model invocation, repository work, tracked edit, Git configuration change,
+  commit, push, or external write occurred.
+- Trial effect: case 004 consumed the fourth of five attempts, contributes no
+  outcome evidence, prevents protocol-v4 `KEEP`, and stops protocol v4 at
+  `MODIFY`. One attempt remains unstarted.
+- Required modification: freeze the full treatment entry closure, distinguish
+  tracked status from fixture availability, compare complete manifests before
+  and after each writer, and forbid hidden Git ignore or configuration repairs.
+
+### Protocol v5 modification
+
+- Modified: `2026-08-17`, after the owner explicitly requested the case-004
+  protocol fix. This approval covers the protocol source of truth and sabotage
+  tests only. It does not reserve case 005, freeze its packet, create seeds,
+  writers, or worktrees, invoke a model, or authorize live execution.
+- Cases 001 through 004 remain immutable invalid receipts and consumed four of
+  five attempts. Protocol v5 is a distinct round with exactly one remaining
+  attempt; it does not start automatically.
+- Protocol v5 retains protocol v4's native launcher profile, capability classes,
+  requested-and-CLI-accepted model and effort language, authority boundaries,
+  process limits, and fail-closed invalidity rules.
+- Before freeze, a complete manifest must bind every non-administrative entry's
+  path, type, and mode plus regular-file size and SHA-256. Symlink rows also
+  bind exact undereferenced link-target byte length and SHA-256. The
+  treatment-only allowlist must explicitly include every absent parent
+  directory and both fixture files. For the current tree it contains exactly
+  three directories and two files; no other entry or metadata may differ.
+- Tracked cleanliness uses exactly
+  `git status --porcelain=v1 --untracked-files=no`. Complete manifests before
+  and after each writer independently reject any added, removed, or changed
+  untracked entry.
+- `.git/info/exclude`, global ignore rules, worktree config, alternate indexes,
+  environment overrides, and other hidden administrative differences cannot be
+  used to satisfy the seed contract.
+- Every evaluator-owned Git seed probe runs from `env -i` with only frozen
+  `PATH`, fresh empty `HOME` and `XDG_CONFIG_HOME`, `LC_ALL=C`,
+  `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`, and
+  `GIT_ATTR_NOSYSTEM=1`. No other inherited `GIT_*`, command-scope config,
+  alternate-index, or alternate-object-store override is allowed.
+- Each seed records administrative state at creation, immediately before launch,
+  and after writer termination. The receipt binds the sanitized environment;
+  mode, size, and SHA-256 or explicit `ABSENT` for `info/exclude`,
+  `info/attributes`, `info/sparse-checkout`, and `objects/info/alternates`;
+  exact exit and output proving `core.attributesFile` and `core.whitespace`
+  unset; hashes of exact `git config --null --list`, `git ls-files --stage -z`,
+  and `git ls-files -v -z` output; and exact tracked status. Semantic outputs and
+  absence states must be byte-identical between baseline and treatment and
+  unchanged across checkpoints. Prelaunch mismatch or unknown is `UNSUPPORTED`;
+  post-launch change makes the pair `INVALID`. System attributes are disabled,
+  user-level attribute locations are absent under the fresh config directories,
+  working-tree `.gitattributes` remains inside the complete manifest, and an
+  identical unsafe `core.whitespace` override in both seeds is forbidden.
+- The final attempt cannot satisfy the existing two-valid-pair `KEEP` threshold,
+  and protocol v5 does not weaken it. A valid case 005 may provide one
+  feasibility observation; the five-case trial must then end with `MODIFY`,
+  `MOVE`, or `REMOVE` unless a separately authorized new trial defines a new
+  ceiling and decision rule.
+- No case-005 packet, seed, writer, worktree, model invocation, or real-session
+  read was created while adopting this revision. The fixture, released plugin,
   marketplace, Rust workspace, and model-routing policy remain unchanged.
 
 ## milestone-closure-gate

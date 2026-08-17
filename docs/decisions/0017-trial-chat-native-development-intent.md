@@ -1,7 +1,7 @@
 # Decision 0017: Trial chat-native development intent
 
-- **Status:** isolated evaluation fixture; protocol v4 accepted for contract
-  work only after case 003 ended `INVALID_PRELAUNCH`; no v4 case is reserved
+- **Status:** isolated evaluation fixture; protocol v5 accepted for contract
+  work only after case 004 ended `INVALID_PRELAUNCH`; no v5 case is reserved
 - **Date:** 2026-08-17
 - **Owner:** project owner
 
@@ -348,6 +348,120 @@ acceptance, and positive preselected intent-quality signals, with no v4 invalid
 pair or hard regression. No case starts automatically. Case 004, if selected,
 must be frozen from a clean committed tree containing this protocol and must use
 a new evaluator packet rather than repair case 003.
+
+### Protocol v5: explicit seed-entry accounting
+
+After case 004 packet freeze and separate launch approval, deterministic
+preflight found two contradictions in the frozen seed contract. Its complete
+manifest included every filesystem entry but allowed only the two fixture files
+to differ, even though the clean baseline lacked three required parent
+directories. It also required plain `git status --porcelain=v1` to be empty in
+the treatment seed even though the intentionally added fixture files were
+untracked and not ignored. Case 004 ended `INVALID_PRELAUNCH`; no seed, worktree,
+writer, model invocation, repository work, or external action started. It
+consumed the fourth of five attempts and contributes no outcome evidence.
+
+Protocol v5 is a distinct modified round using the one remaining attempt. Cases
+001 through 004 and their invalidity reasons remain immutable. Adopting this
+contract and its tests does not reserve case 005, create a seed or writer,
+invoke a model, or authorize live execution. Case selection, packet freeze, and
+live launch remain separate owner approvals.
+
+Three options were considered. A file-only manifest would ignore directory
+metadata and weaken the sole-difference claim. Precreating or ignoring fixture
+paths through Git administrative state would add a hidden launcher input.
+Select explicit treatment-entry closure plus separate tracked-status and full
+pre/post manifest checks; it keeps every visible seed difference observable and
+requires no new executor or repository configuration.
+
+Receipt verification has a separate portability boundary. Requiring the local
+Git-common-directory artifacts in clean-clone CI would make CI machine-local;
+committing copies would create a second source of truth and may expose the
+frozen packet. Keep those artifacts local. `python3
+scripts/verify-goalrail-intent-case-004-receipts.py` is a mandatory local
+closure check: a missing or non-regular receipt, byte-hash mismatch,
+case/protocol/schema mismatch, non-`INVALID_PRELAUNCH` verdict, or any nonzero
+no-launch action fails. It also links all six activation artifact hashes to the
+terminal source of truth, reconciles the accepted, candidate, and terminal
+manifest hashes, and reconciles packet, activation, and terminal attempt
+accounting. It re-reads every canonical artifact and the freeze-candidate
+manifest as a regular file and matches their exact byte counts and SHA-256
+values. It parses the freeze-candidate manifest as JSON and requires strict JSON
+types and exact values for its schema, case, protocol, inactive status, and
+no-launch candidate flags. Default Git-common-directory discovery removes every
+inherited `GIT_*` variable before `git rev-parse`; only explicit
+`--evidence-root` can override the evidence root.
+Portable CI runs the same verifier's `--self-test` to exercise positive and
+sabotage paths, but that self-test never substitutes for the local receipt
+check.
+
+Keep the protocol-v4 native launcher, capability classes, authority boundaries,
+budgets, and evidence limitations unchanged. Replace only the contradictory
+seed checks:
+
+- Freeze a complete sorted manifest of every seed filesystem entry except the
+  administrative `.git` entry. Every row binds path, entry type, and mode;
+  regular files additionally bind size and SHA-256. Symbolic-link rows
+  additionally bind the byte length and SHA-256 of the exact link-target bytes
+  without dereferencing the link. The baseline manifest must prove the fixture
+  destination absent.
+- Derive and freeze the exact treatment-only entry closure before launch. It
+  contains the two fixture files plus every parent directory absent from the
+  baseline. For the current repository layout this closure is exactly
+  `.agents/skills`, `.agents/skills/goalrail-intent`,
+  `.agents/skills/goalrail-intent/agents`,
+  `.agents/skills/goalrail-intent/SKILL.md`, and
+  `.agents/skills/goalrail-intent/agents/openai.yaml`. No other entry or metadata
+  difference is allowed.
+- Define clean repository state as tracked cleanliness and verify it with the
+  exact command `git status --porcelain=v1 --untracked-files=no` in both seeds.
+  Do not reinterpret plain porcelain output after freeze.
+- Retain each seed's complete pre-run manifest and compare it byte-for-byte with
+  a complete post-run manifest. This independent check, not Git status, rejects
+  any added, removed, or changed untracked entry. Tracked status and
+  `git diff --check` remain separate checks.
+- Do not add `.git/info/exclude`, global ignore rules, worktree config, alternate
+  indexes, environment overrides, or another hidden administrative difference
+  to make a seed appear clean. A required hidden seed mutation is
+  `UNSUPPORTED` and prevents packet freeze.
+- Run every evaluator-owned Git seed probe under an exact sanitized environment
+  created with `env -i`. Its only entries are a frozen `PATH`, fresh empty
+  `HOME` and `XDG_CONFIG_HOME` directories, `LC_ALL=C`,
+  `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`, and
+  `GIT_ATTR_NOSYSTEM=1`; no inherited `GIT_*`, command-scope config,
+  alternate-index, or alternate-object-store override is allowed.
+- At seed creation, immediately before each writer launch, and after each writer
+  terminates, retain an administrative-state receipt for each seed. It binds
+  the sanitized environment manifest; mode, size, and SHA-256 or explicit
+  `ABSENT` state for resolved `info/exclude`, `info/attributes`,
+  `info/sparse-checkout`, and `objects/info/alternates`; exact exit status and
+  output from `git config --path --get core.attributesFile`, which must report
+  unset, and from `git config --get core.whitespace`, which must also report
+  unset; SHA-256 of the exact outputs from `git config --null --list`, `git
+  ls-files --stage -z`, and `git ls-files -v -z`; and the exact tracked-status
+  output. The semantic outputs and absence states must be byte-identical between
+  baseline and treatment at matching checkpoints, and each seed's values must
+  remain unchanged across checkpoints. A prelaunch mismatch or unknown is
+  `UNSUPPORTED`; a post-launch change makes the pair `INVALID`.
+
+Git attributes need an explicit boundary because they affect `git diff --check`.
+Hashing an arbitrary external `core.attributesFile` would retain a mutable input;
+assuming equal config would not prove that external file stayed unchanged.
+Select `GIT_ATTR_NOSYSTEM=1`, fresh empty user config directories, mandatory
+unset `core.attributesFile`, and bound `info/attributes`. An identical
+`core.whitespace=-trailing-space` override in both seeds would disable
+trailing-space detection while preserving equality, so `core.whitespace` must
+also be unset. Working-tree `.gitattributes` remains covered by the complete
+filesystem manifest. Any effective attribute source outside those bounds is
+`UNSUPPORTED`.
+
+The one remaining attempt cannot satisfy the existing two-valid-pair threshold
+for `KEEP`. Protocol v5 must not weaken that threshold. A valid case 005 may
+provide one receipt-backed feasibility observation, after which this five-case
+trial must end with `MODIFY`, `MOVE`, or `REMOVE` unless the owner separately
+authorizes a new trial with a new ceiling and decision rule. No case starts
+automatically, and case 005 must use a new evaluator packet rather than repair
+case 004.
 
 Do not infer a model-routing policy from this trial. A later controlled routing
 experiment must change exactly one model or effort dimension and satisfy the

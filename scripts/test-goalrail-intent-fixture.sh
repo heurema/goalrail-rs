@@ -7,6 +7,7 @@ repo_root=$(CDPATH='' cd -- "$script_dir/.." && pwd)
 skill="$repo_root/fixtures/chat-native-development-intent/goalrail-intent/SKILL.md"
 decision="$repo_root/docs/decisions/0017-trial-chat-native-development-intent.md"
 trials="$repo_root/docs/trials.md"
+case_004_receipt_verifier="$repo_root/scripts/verify-goalrail-intent-case-004-receipts.py"
 
 require_text() {
   expected=$1
@@ -25,6 +26,40 @@ require_normalized_text() {
     echo "Goalrail intent fixture normalized contract is missing from $file: $expected" >&2
     return 1
   }
+}
+
+symlink_target_identity() {
+  link=$1
+  python3 - "$link" <<'PY'
+import hashlib
+import os
+import sys
+
+target = os.readlink(os.fsencode(sys.argv[1]))
+print(f"{len(target)} {hashlib.sha256(target).hexdigest()}")
+PY
+}
+
+regular_file_identity_or_absent() {
+  path=$1
+  python3 - "$path" <<'PY'
+import hashlib
+import os
+import stat
+import sys
+
+path = os.fsencode(sys.argv[1])
+try:
+    metadata = os.lstat(path)
+except FileNotFoundError:
+    print("ABSENT")
+else:
+    if not stat.S_ISREG(metadata.st_mode):
+        raise SystemExit("identity target is not a regular file")
+    with open(path, "rb") as handle:
+        data = handle.read()
+    print(f"{stat.S_IMODE(metadata.st_mode):04o} {len(data)} {hashlib.sha256(data).hexdigest()}")
+PY
 }
 
 reject_representative_fixed_models() {
@@ -155,6 +190,42 @@ validate_protocol_v4_contract() {
   require_normalized_text 'Case 004, if selected, must be frozen from a clean committed tree containing this protocol and must use a new evaluator packet rather than repair case 003.' "$file" || return 1
 }
 
+validate_protocol_v5_contract() {
+  file=$1
+
+  require_text '### Protocol v5: explicit seed-entry accounting' "$file" || return 1
+  require_normalized_text 'After case 004 packet freeze and separate launch approval, deterministic preflight found two contradictions in the frozen seed contract.' "$file" || return 1
+  require_normalized_text 'Case 004 ended `INVALID_PRELAUNCH`; no seed, worktree, writer, model invocation, repository work, or external action started. It consumed the fourth of five attempts and contributes no outcome evidence.' "$file" || return 1
+  require_normalized_text 'Protocol v5 is a distinct modified round using the one remaining attempt. Cases 001 through 004 and their invalidity reasons remain immutable.' "$file" || return 1
+  require_normalized_text 'A file-only manifest would ignore directory metadata and weaken the sole-difference claim. Precreating or ignoring fixture paths through Git administrative state would add a hidden launcher input. Select explicit treatment-entry closure plus separate tracked-status and full pre/post manifest checks' "$file" || return 1
+  require_normalized_text 'Receipt verification has a separate portability boundary. Requiring the local Git-common-directory artifacts in clean-clone CI would make CI machine-local; committing copies would create a second source of truth and may expose the frozen packet. Keep those artifacts local.' "$file" || return 1
+  require_normalized_text '`python3 scripts/verify-goalrail-intent-case-004-receipts.py` is a mandatory local closure check: a missing or non-regular receipt, byte-hash mismatch, case/protocol/schema mismatch, non-`INVALID_PRELAUNCH` verdict, or any nonzero no-launch action fails.' "$file" || return 1
+  require_normalized_text 'It also links all six activation artifact hashes to the terminal source of truth, reconciles the accepted, candidate, and terminal manifest hashes, and reconciles packet, activation, and terminal attempt accounting.' "$file" || return 1
+  require_normalized_text 'It re-reads every canonical artifact and the freeze-candidate manifest as a regular file and matches their exact byte counts and SHA-256 values.' "$file" || return 1
+  require_normalized_text 'It parses the freeze-candidate manifest as JSON and requires strict JSON types and exact values for its schema, case, protocol, inactive status, and no-launch candidate flags.' "$file" || return 1
+  require_normalized_text 'Default Git-common-directory discovery removes every inherited `GIT_*` variable before `git rev-parse`; only explicit `--evidence-root` can override the evidence root.' "$file" || return 1
+  require_normalized_text 'Portable CI runs the same verifier'"'"'s `--self-test` to exercise positive and sabotage paths, but that self-test never substitutes for the local receipt check.' "$file" || return 1
+  require_normalized_text 'Freeze a complete sorted manifest of every seed filesystem entry except the administrative `.git` entry. Every row binds path, entry type, and mode; regular files additionally bind size and SHA-256.' "$file" || return 1
+  require_normalized_text 'Symbolic-link rows additionally bind the byte length and SHA-256 of the exact link-target bytes without dereferencing the link.' "$file" || return 1
+  require_normalized_text 'Derive and freeze the exact treatment-only entry closure before launch. It contains the two fixture files plus every parent directory absent from the baseline.' "$file" || return 1
+  require_normalized_text 'For the current repository layout this closure is exactly `.agents/skills`, `.agents/skills/goalrail-intent`, `.agents/skills/goalrail-intent/agents`, `.agents/skills/goalrail-intent/SKILL.md`, and `.agents/skills/goalrail-intent/agents/openai.yaml`. No other entry or metadata difference is allowed.' "$file" || return 1
+  require_normalized_text 'Define clean repository state as tracked cleanliness and verify it with the exact command `git status --porcelain=v1 --untracked-files=no` in both seeds.' "$file" || return 1
+  require_normalized_text 'Retain each seed'"'"'s complete pre-run manifest and compare it byte-for-byte with a complete post-run manifest. This independent check, not Git status, rejects any added, removed, or changed untracked entry.' "$file" || return 1
+  require_normalized_text 'Do not add `.git/info/exclude`, global ignore rules, worktree config, alternate indexes, environment overrides, or another hidden administrative difference to make a seed appear clean.' "$file" || return 1
+  require_normalized_text 'Run every evaluator-owned Git seed probe under an exact sanitized environment created with `env -i`. Its only entries are a frozen `PATH`, fresh empty `HOME` and `XDG_CONFIG_HOME` directories, `LC_ALL=C`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`, and `GIT_ATTR_NOSYSTEM=1`' "$file" || return 1
+  require_normalized_text 'no inherited `GIT_*`, command-scope config, alternate-index, or alternate-object-store override is allowed.' "$file" || return 1
+  require_normalized_text 'At seed creation, immediately before each writer launch, and after each writer terminates, retain an administrative-state receipt for each seed.' "$file" || return 1
+  require_normalized_text 'It binds the sanitized environment manifest; mode, size, and SHA-256 or explicit `ABSENT` state for resolved `info/exclude`, `info/attributes`, `info/sparse-checkout`, and `objects/info/alternates`; exact exit status and output from `git config --path --get core.attributesFile`, which must report unset, and from `git config --get core.whitespace`, which must also report unset; SHA-256 of the exact outputs from `git config --null --list`, `git ls-files --stage -z`, and `git ls-files -v -z`; and the exact tracked-status output.' "$file" || return 1
+  require_normalized_text 'The semantic outputs and absence states must be byte-identical between baseline and treatment at matching checkpoints, and each seed'"'"'s values must remain unchanged across checkpoints.' "$file" || return 1
+  require_normalized_text 'A prelaunch mismatch or unknown is `UNSUPPORTED`; a post-launch change makes the pair `INVALID`.' "$file" || return 1
+  require_normalized_text 'Git attributes need an explicit boundary because they affect `git diff --check`. Hashing an arbitrary external `core.attributesFile` would retain a mutable input; assuming equal config would not prove that external file stayed unchanged.' "$file" || return 1
+  require_normalized_text 'Select `GIT_ATTR_NOSYSTEM=1`, fresh empty user config directories, mandatory unset `core.attributesFile`, and bound `info/attributes`.' "$file" || return 1
+  require_normalized_text 'An identical `core.whitespace=-trailing-space` override in both seeds would disable trailing-space detection while preserving equality, so `core.whitespace` must also be unset.' "$file" || return 1
+  require_normalized_text 'Working-tree `.gitattributes` remains covered by the complete filesystem manifest.' "$file" || return 1
+  require_normalized_text 'The one remaining attempt cannot satisfy the existing two-valid-pair threshold for `KEEP`. Protocol v5 must not weaken that threshold.' "$file" || return 1
+  require_normalized_text 'No case starts automatically, and case 005 must use a new evaluator packet rather than repair case 004.' "$file" || return 1
+}
+
 validate_case_001_receipt() {
   file=$1
 
@@ -198,10 +269,28 @@ validate_case_003_receipt() {
   require_normalized_text 'Trial effect: case 003 consumed the third of five attempts, contributes no outcome evidence, prevents protocol-v3 `KEEP`, and stops protocol v3 at `MODIFY`. Two attempts remain unstarted.' "$file" || return 1
 }
 
+validate_case_004_receipt() {
+  file=$1
+
+  require_text '### Case 004: architecture drift baseline decision' "$file" || return 1
+  require_normalized_text 'Frozen packet: local Git evidence path `.git/goalrail/intent-canary/case-004/evaluator-packet.json`, SHA-256 `33442d002fea28255659010796ef25bbf2c3b91755012f4feacb5a877e2143a1`.' "$file" || return 1
+  require_normalized_text 'The detached freeze activation receipt is `.git/goalrail/intent-canary/case-004-activation/freeze-receipt.json`, SHA-256 `00eacd49f0b4c24d040c786f27d317d2977c86243b84ff3d6c0dc9ac9b963833`.' "$file" || return 1
+  require_normalized_text 'The terminal launch-feasibility receipt is `.git/goalrail/intent-canary/case-004-result/launch-feasibility.json`, SHA-256 `0082187552b49b28e83253b557476501dd479d2a050a072cad945e84320e1717`.' "$file" || return 1
+  require_normalized_text '`python3 scripts/verify-goalrail-intent-case-004-receipts.py` is the mandatory local closure check for all three files. It verifies their exact bytes, case/protocol/schema identities, terminal `INVALID_PRELAUNCH` verdict, attempt accounting, every no-launch field, all six canonical artifact links, and the accepted/candidate/terminal manifest links.' "$file" || return 1
+  require_normalized_text 'It also re-reads all six canonical artifacts and the freeze-candidate manifest and verifies exact byte counts and SHA-256 values.' "$file" || return 1
+  require_normalized_text 'It parses the freeze-candidate manifest as JSON and requires strict JSON types and exact values for its schema, case, protocol, inactive status, and no-launch candidate flags.' "$file" || return 1
+  require_normalized_text 'Default Git-common-directory discovery removes every inherited `GIT_*` variable before `git rev-parse`; only explicit `--evidence-root` can override the evidence root.' "$file" || return 1
+  require_normalized_text 'Missing local evidence fails; its portable `--self-test` in CI does not replace this check.' "$file" || return 1
+  require_normalized_text 'Launch authority was granted, but deterministic preflight stopped before seed creation.' "$file" || return 1
+  require_normalized_text 'The frozen complete-manifest rule allowed only two file differences while treatment required three absent parent directories plus those files.' "$file" || return 1
+  require_normalized_text 'The treatment files were also untracked and not ignored, contradicting the frozen requirement that plain `git status --porcelain=v1` be empty.' "$file" || return 1
+  require_normalized_text 'Terminal outcome: `INVALID_PRELAUNCH`; no seed, experiment worktree, writer, model invocation, repository work, tracked edit, Git configuration change, commit, push, or external write occurred.' "$file" || return 1
+  require_normalized_text 'Trial effect: case 004 consumed the fourth of five attempts, contributes no outcome evidence, prevents protocol-v4 `KEEP`, and stops protocol v4 at `MODIFY`. One attempt remains unstarted.' "$file" || return 1
+}
+
 validate_protocol_v4_receipt() {
   file=$1
 
-  require_normalized_text 'Current decision: `TRIAL` under protocol v4 for contract work only; no v4 case is reserved or authorized for live execution.' "$file" || return 1
   require_text '### Protocol v4 modification' "$file" || return 1
   require_normalized_text 'This approval covers the protocol source of truth and sabotage tests only. It does not reserve case 004, freeze its packet, create writers or worktrees, invoke a model, or authorize live execution.' "$file" || return 1
   require_normalized_text '`LAUNCHER_BOUND` rows freeze the exact CLI version, complete argv and config, artifact hashes, output schema, repository seeds, and execution order.' "$file" || return 1
@@ -213,18 +302,137 @@ validate_protocol_v4_receipt() {
   require_normalized_text 'No v4 case, packet, writer, worktree, model invocation, or real-session read was created while adopting this revision. The fixture, released plugin, marketplace, Rust workspace, and model-routing policy remain unchanged.' "$file" || return 1
 }
 
+validate_protocol_v5_receipt() {
+  file=$1
+
+  require_normalized_text 'Current decision: `TRIAL` under protocol v5 for contract work only; no v5 case is reserved or authorized for live execution.' "$file" || return 1
+  require_text '### Protocol v5 modification' "$file" || return 1
+  require_normalized_text 'This approval covers the protocol source of truth and sabotage tests only. It does not reserve case 005, freeze its packet, create seeds, writers, or worktrees, invoke a model, or authorize live execution.' "$file" || return 1
+  require_normalized_text 'Cases 001 through 004 remain immutable invalid receipts and consumed four of five attempts. Protocol v5 is a distinct round with exactly one remaining attempt; it does not start automatically.' "$file" || return 1
+  require_normalized_text 'Before freeze, a complete manifest must bind every non-administrative entry'"'"'s path, type, and mode plus regular-file size and SHA-256.' "$file" || return 1
+  require_normalized_text 'Symlink rows also bind exact undereferenced link-target byte length and SHA-256.' "$file" || return 1
+  require_normalized_text 'The treatment-only allowlist must explicitly include every absent parent directory and both fixture files. For the current tree it contains exactly three directories and two files; no other entry or metadata may differ.' "$file" || return 1
+  require_normalized_text 'Tracked cleanliness uses exactly `git status --porcelain=v1 --untracked-files=no`. Complete manifests before and after each writer independently reject any added, removed, or changed untracked entry.' "$file" || return 1
+  require_normalized_text '`.git/info/exclude`, global ignore rules, worktree config, alternate indexes, environment overrides, and other hidden administrative differences cannot be used to satisfy the seed contract.' "$file" || return 1
+  require_normalized_text 'Every evaluator-owned Git seed probe runs from `env -i` with only frozen `PATH`, fresh empty `HOME` and `XDG_CONFIG_HOME`, `LC_ALL=C`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`, and `GIT_ATTR_NOSYSTEM=1`.' "$file" || return 1
+  require_normalized_text 'Each seed records administrative state at creation, immediately before launch, and after writer termination.' "$file" || return 1
+  require_normalized_text 'The receipt binds the sanitized environment; mode, size, and SHA-256 or explicit `ABSENT` for `info/exclude`, `info/attributes`, `info/sparse-checkout`, and `objects/info/alternates`; exact exit and output proving `core.attributesFile` and `core.whitespace` unset' "$file" || return 1
+  require_normalized_text 'Semantic outputs and absence states must be byte-identical between baseline and treatment and unchanged across checkpoints. Prelaunch mismatch or unknown is `UNSUPPORTED`; post-launch change makes the pair `INVALID`.' "$file" || return 1
+  require_normalized_text 'System attributes are disabled, user-level attribute locations are absent under the fresh config directories, working-tree `.gitattributes` remains inside the complete manifest, and an identical unsafe `core.whitespace` override in both seeds is forbidden.' "$file" || return 1
+  require_normalized_text 'The final attempt cannot satisfy the existing two-valid-pair `KEEP` threshold, and protocol v5 does not weaken it.' "$file" || return 1
+  require_normalized_text 'No case-005 packet, seed, writer, worktree, model invocation, or real-session read was created while adopting this revision.' "$file" || return 1
+}
+
 validate_contract "$skill"
 validate_trial_contract "$decision"
 validate_protocol_v3_contract "$decision"
 validate_protocol_v4_contract "$decision"
+validate_protocol_v5_contract "$decision"
 validate_case_001_receipt "$trials"
 validate_case_002_receipt "$trials"
 validate_protocol_v3_receipt "$trials"
 validate_case_003_receipt "$trials"
 validate_protocol_v4_receipt "$trials"
+validate_case_004_receipt "$trials"
+validate_protocol_v5_receipt "$trials"
+
+test -f "$case_004_receipt_verifier" || {
+  echo "Goalrail intent case-004 receipt verifier is missing" >&2
+  exit 1
+}
+require_text '33442d002fea28255659010796ef25bbf2c3b91755012f4feacb5a877e2143a1' "$case_004_receipt_verifier"
+require_text '00eacd49f0b4c24d040c786f27d317d2977c86243b84ff3d6c0dc9ac9b963833' "$case_004_receipt_verifier"
+require_text '0082187552b49b28e83253b557476501dd479d2a050a072cad945e84320e1717' "$case_004_receipt_verifier"
+require_text '"goalrail.intent-canary.launch-feasibility.v2"' "$case_004_receipt_verifier"
+require_text '"external_write_performed": False' "$case_004_receipt_verifier"
+python3 "$case_004_receipt_verifier" --self-test
 
 trial_dir=$(mktemp -d "${TMPDIR:-/tmp}/goalrail-intent-fixture.XXXXXX")
 trap 'rm -rf -- "$trial_dir"' EXIT HUP INT TERM
+
+symlink_probe="$trial_dir/symlink-probe"
+ln -s 'target-one' "$symlink_probe"
+symlink_identity_before=$(symlink_target_identity "$symlink_probe")
+rm -- "$symlink_probe"
+ln -s 'target-two' "$symlink_probe"
+symlink_identity_after=$(symlink_target_identity "$symlink_probe")
+if test "$symlink_identity_before" = "$symlink_identity_after"; then
+  echo "Goalrail intent seed manifest preserved identity after a symlink-target change" >&2
+  exit 1
+fi
+
+symlink_newline_probe="$trial_dir/symlink-newline-probe"
+target_with_trailing_newline=$(printf 'target-a\nx')
+target_with_trailing_newline=${target_with_trailing_newline%x}
+ln -s "$target_with_trailing_newline" "$symlink_newline_probe"
+symlink_newline_identity=$(symlink_target_identity "$symlink_newline_probe")
+rm -- "$symlink_newline_probe"
+ln -s 'target-a' "$symlink_newline_probe"
+symlink_plain_identity=$(symlink_target_identity "$symlink_newline_probe")
+if test "$symlink_newline_identity" = "$symlink_plain_identity"; then
+  echo "Goalrail intent seed manifest discarded trailing symlink-target newline bytes" >&2
+  exit 1
+fi
+
+baseline_attributes="$trial_dir/baseline-info-attributes"
+treatment_attributes="$trial_dir/treatment-info-attributes"
+printf '%s\n' '*.rs whitespace=-trailing-space' >"$baseline_attributes"
+printf '%s\n' '*.rs whitespace=-trailing-space' >"$treatment_attributes"
+baseline_attributes_identity=$(regular_file_identity_or_absent "$baseline_attributes")
+treatment_attributes_identity=$(regular_file_identity_or_absent "$treatment_attributes")
+if test "$baseline_attributes_identity" != "$treatment_attributes_identity"; then
+  echo "Goalrail intent Git-attribute identity rejected equal state" >&2
+  exit 1
+fi
+printf '%s\n' '*.rs whitespace=tab-in-indent' >"$treatment_attributes"
+treatment_attributes_identity=$(regular_file_identity_or_absent "$treatment_attributes")
+if test "$baseline_attributes_identity" = "$treatment_attributes_identity"; then
+  echo "Goalrail intent Git-attribute identity accepted divergent info/attributes" >&2
+  exit 1
+fi
+
+attributes_repo="$trial_dir/attributes-repo"
+git -C "$trial_dir" init -q "$attributes_repo"
+mkdir -p "$attributes_repo/.git/info"
+printf 'clean\n' >"$attributes_repo/sample.txt"
+git -C "$attributes_repo" add sample.txt
+printf 'trailing-space \n' >"$attributes_repo/sample.txt"
+printf '%s\n' '*.txt whitespace=-trailing-space' >"$attributes_repo/.git/info/attributes"
+LC_ALL=C git -C "$attributes_repo" diff --check >/dev/null || {
+  echo "Goalrail intent Git-attribute sabotage could not disable trailing-space detection" >&2
+  exit 1
+}
+printf '%s\n' '*.txt whitespace=trailing-space' >"$attributes_repo/.git/info/attributes"
+set +e
+LC_ALL=C git -C "$attributes_repo" diff --check >/dev/null 2>&1
+attributes_diff_status=$?
+set -e
+if test "$attributes_diff_status" -eq 0; then
+  echo "Goalrail intent Git-attribute sabotage did not affect git diff --check" >&2
+  exit 1
+fi
+
+: >"$attributes_repo/.git/info/attributes"
+git -C "$attributes_repo" config --local --unset-all core.whitespace >/dev/null 2>&1 || true
+empty_git_home="$trial_dir/empty-git-home"
+mkdir -p "$empty_git_home"
+set +e
+HOME="$empty_git_home" XDG_CONFIG_HOME="$empty_git_home" \
+  GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_ATTR_NOSYSTEM=1 \
+  LC_ALL=C git -C "$attributes_repo" diff --check >/dev/null 2>&1
+default_whitespace_status=$?
+set -e
+if test "$default_whitespace_status" -eq 0; then
+  echo "Goalrail intent core.whitespace sabotage lacked a detectable default" >&2
+  exit 1
+fi
+git -C "$attributes_repo" config --local core.whitespace '-trailing-space'
+HOME="$empty_git_home" XDG_CONFIG_HOME="$empty_git_home" \
+  GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_ATTR_NOSYSTEM=1 \
+  LC_ALL=C git -C "$attributes_repo" diff --check >/dev/null || {
+  echo "Goalrail intent unsafe core.whitespace did not disable trailing-space detection" >&2
+  exit 1
+}
 
 missing_native="$trial_dir/missing-native.md"
 sed '/Treat the native or no-build path as a real/d' "$skill" >"$missing_native"
@@ -461,6 +669,111 @@ if validate_protocol_v4_contract "$missing_v4_keep_rule" >/dev/null 2>&1; then
   exit 1
 fi
 
+missing_v5_entry_closure="$trial_dir/missing-v5-entry-closure.md"
+sed '/Derive and freeze the exact treatment-only entry closure before launch./d' "$decision" >"$missing_v5_entry_closure"
+if validate_protocol_v5_contract "$missing_v5_entry_closure" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v5 without parent-directory closure" >&2
+  exit 1
+fi
+
+weakened_v5_symlink_target="$trial_dir/weakened-v5-symlink-target.md"
+sed 's/byte length and SHA-256 of the exact link-target bytes/byte length of the exact link-target bytes/' "$decision" >"$weakened_v5_symlink_target"
+if validate_protocol_v5_contract "$weakened_v5_symlink_target" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted a manifest without symlink-target digest identity" >&2
+  exit 1
+fi
+
+weakened_v5_tracked_status="$trial_dir/weakened-v5-tracked-status.md"
+sed 's/git status --porcelain=v1 --untracked-files=no/git status --porcelain=v1/g' "$decision" >"$weakened_v5_tracked_status"
+if validate_protocol_v5_contract "$weakened_v5_tracked_status" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted ambiguous treatment status" >&2
+  exit 1
+fi
+
+missing_v5_post_manifest="$trial_dir/missing-v5-post-manifest.md"
+sed "/Retain each seed's complete pre-run manifest/d" "$decision" >"$missing_v5_post_manifest"
+if validate_protocol_v5_contract "$missing_v5_post_manifest" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted unobserved writer untracked changes" >&2
+  exit 1
+fi
+
+missing_v5_hidden_admin_boundary="$trial_dir/missing-v5-hidden-admin-boundary.md"
+sed '/Do not add `.git\/info\/exclude`/d' "$decision" >"$missing_v5_hidden_admin_boundary"
+if validate_protocol_v5_contract "$missing_v5_hidden_admin_boundary" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted hidden Git seed repair" >&2
+  exit 1
+fi
+
+weakened_v5_local_receipt_check="$trial_dir/weakened-v5-local-receipt-check.md"
+sed 's/is a mandatory local/is an optional local/' "$decision" >"$weakened_v5_local_receipt_check"
+if validate_protocol_v5_contract "$weakened_v5_local_receipt_check" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted optional local receipt verification" >&2
+  exit 1
+fi
+
+weakened_v5_candidate_identity="$trial_dir/weakened-v5-candidate-identity.md"
+sed 's/requires strict JSON/requires coercible JSON/' "$decision" >"$weakened_v5_candidate_identity"
+if validate_protocol_v5_contract "$weakened_v5_candidate_identity" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted an untyped freeze candidate manifest" >&2
+  exit 1
+fi
+
+weakened_v5_default_root="$trial_dir/weakened-v5-default-root.md"
+sed 's/removes every/removes no/' "$decision" >"$weakened_v5_default_root"
+if validate_protocol_v5_contract "$weakened_v5_default_root" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted inherited Git evidence-root redirection" >&2
+  exit 1
+fi
+
+weakened_v5_sanitized_git_env="$trial_dir/weakened-v5-sanitized-git-env.md"
+sed 's/created with `env -i`/created with the inherited environment/' "$decision" >"$weakened_v5_sanitized_git_env"
+if validate_protocol_v5_contract "$weakened_v5_sanitized_git_env" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted inherited Git probe state" >&2
+  exit 1
+fi
+
+weakened_v5_admin_identity="$trial_dir/weakened-v5-admin-identity.md"
+sed 's/must be byte-identical between/may differ between/' "$decision" >"$weakened_v5_admin_identity"
+if validate_protocol_v5_contract "$weakened_v5_admin_identity" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted divergent Git administrative state" >&2
+  exit 1
+fi
+
+weakened_v5_system_attributes="$trial_dir/weakened-v5-system-attributes.md"
+sed 's/GIT_ATTR_NOSYSTEM=1/GIT_ATTR_NOSYSTEM=0/g' "$decision" >"$weakened_v5_system_attributes"
+if validate_protocol_v5_contract "$weakened_v5_system_attributes" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted system Git attributes" >&2
+  exit 1
+fi
+
+missing_v5_info_attributes="$trial_dir/missing-v5-info-attributes.md"
+sed 's/`info\/exclude`, `info\/attributes`,/`info\/exclude`,/' "$decision" >"$missing_v5_info_attributes"
+if validate_protocol_v5_contract "$missing_v5_info_attributes" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted unbound info/attributes" >&2
+  exit 1
+fi
+
+weakened_v5_external_attributes="$trial_dir/weakened-v5-external-attributes.md"
+sed 's/which must report/which may report/' "$decision" >"$weakened_v5_external_attributes"
+if validate_protocol_v5_contract "$weakened_v5_external_attributes" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted external core.attributesFile" >&2
+  exit 1
+fi
+
+weakened_v5_core_whitespace="$trial_dir/weakened-v5-core-whitespace.md"
+sed 's/which must also report/which may report/' "$decision" >"$weakened_v5_core_whitespace"
+if validate_protocol_v5_contract "$weakened_v5_core_whitespace" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted unsafe core.whitespace" >&2
+  exit 1
+fi
+
+weakened_v5_keep_threshold="$trial_dir/weakened-v5-keep-threshold.md"
+sed 's/Protocol v5 must not weaken that threshold./Protocol v5 may weaken that threshold./' "$decision" >"$weakened_v5_keep_threshold"
+if validate_protocol_v5_contract "$weakened_v5_keep_threshold" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted one pair as KEEP evidence" >&2
+  exit 1
+fi
+
 missing_retention="$trial_dir/missing-retention.md"
 sed '/evaluator identity and independence evidence, evaluator-packet path and/d' "$decision" >"$missing_retention"
 if validate_trial_contract "$missing_retention" >/dev/null 2>&1; then
@@ -545,10 +858,31 @@ if validate_case_003_receipt "$missing_case_003_invalidity" >/dev/null 2>&1; the
   exit 1
 fi
 
+missing_case_004_invalidity="$trial_dir/missing-case-004-invalidity.md"
+sed '/Trial effect: case 004 consumed the fourth of five attempts/d' "$trials" >"$missing_case_004_invalidity"
+if validate_case_004_receipt "$missing_case_004_invalidity" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted missing case-004 invalidity evidence" >&2
+  exit 1
+fi
+
+missing_case_004_terminal_receipt="$trial_dir/missing-case-004-terminal-receipt.md"
+sed '/0082187552b49b28e83253b557476501dd479d2a050a072cad945e84320e1717/d' "$trials" >"$missing_case_004_terminal_receipt"
+if validate_case_004_receipt "$missing_case_004_terminal_receipt" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted missing case-004 terminal receipt" >&2
+  exit 1
+fi
+
 missing_v4_no_launch_receipt="$trial_dir/missing-v4-no-launch-receipt.md"
 sed '/No v4 case, packet, writer, worktree, model invocation, or real-session/d' "$trials" >"$missing_v4_no_launch_receipt"
 if validate_protocol_v4_receipt "$missing_v4_no_launch_receipt" >/dev/null 2>&1; then
   echo "Goalrail intent trial accepted protocol v4 without a no-launch receipt" >&2
+  exit 1
+fi
+
+missing_v5_no_launch_receipt="$trial_dir/missing-v5-no-launch-receipt.md"
+sed '/No case-005 packet, seed, writer, worktree, model invocation, or real-session/d' "$trials" >"$missing_v5_no_launch_receipt"
+if validate_protocol_v5_receipt "$missing_v5_no_launch_receipt" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v5 without a no-launch receipt" >&2
   exit 1
 fi
 

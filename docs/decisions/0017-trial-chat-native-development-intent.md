@@ -1,6 +1,7 @@
 # Decision 0017: Trial chat-native development intent
 
-- **Status:** accepted as an isolated evaluation fixture; live canary pending
+- **Status:** isolated evaluation fixture; protocol v2 accepted after case 001,
+  next live case pending separate owner approval
 - **Date:** 2026-08-17
 - **Owner:** project owner
 
@@ -86,32 +87,85 @@ manifest or marketplace target.
 
 ## Trial contract
 
-The first live canary has a hard ceiling of five attempted real
-software-change pairs and no automatic second round. Compare ordinary Codex
-behavior with behavior when the fixture is loaded from the same frozen starting
-state. Fixture availability is the only changed dimension in each pair: use the
-same exact model, effort, tools, permissions, budgets, acceptance checks, and
-attempt ceiling, and counterbalance execution order across the case set. Select
-the cases and their acceptance checks before either run. Treat this as a
-feasibility canary, not a promotion-quality model ranking.
+The live canary has a hard ceiling of five attempted real software-change pairs.
+Case 001 consumed one attempt under protocol v1. A post-run audit classified it
+`INVALID`, so protocol v1 ended with `MODIFY` and contributes no outcome
+evidence. The owner accepted protocol v2 as a distinct modified round with at
+most four additional pairs; no pair starts automatically. Do not rerun case
+001. Protocol-v1 invalidity neither supports nor blocks a protocol-v2 `KEEP`;
+its carried effects are the consumed attempt and the required protocol change.
+
+Compare ordinary Codex behavior with behavior when the fixture is loaded from
+the same frozen starting state. Fixture availability is the only changed
+dimension in each pair: use the same exact model, effort, tools, permissions,
+budgets, acceptance checks, and attempt ceiling, and counterbalance execution
+order across the case set. Treat this as a feasibility canary, not a
+promotion-quality model ranking.
+
+Classify every case before either writer starts:
+
+- A `ROUTINE_NONREGRESSION` case expects the fixture body to remain unloaded.
+  It may expose a false escalation or hard regression but cannot provide
+  positive evidence for `KEEP`.
+- A `DECISION_BEARING` treatment contributes positive evidence only when host
+  evidence confirms that the full fixture instructions loaded. Catalog
+  presence alone is insufficient.
+- A case with a known solution exposed through memory, history, or another
+  available source is `REPLAY_NONREGRESSION`. It cannot demonstrate capability
+  improvement even when its result passes.
+
+Before implementation, an acceptance owner independent of both writers must
+create and content-hash one evaluator packet. Every normative expected behavior
+and forbidden change must have a stable criterion ID and be visible to both
+writers before they start. The packet also binds deterministic commands, at
+least one boundary or adversarial check, and the terminal verdict schema. The
+same packet evaluates both results.
+
+Only the implementation of an evaluator check and its concrete adversarial
+inputs may remain hidden. Every hidden check must cite one visible criterion ID
+and may test only that criterion; an evaluator must reject a hidden check that
+adds a normative requirement. The evaluator receives the packet and immutable
+result artifacts, not writer reasoning or self-assessment, and must not repair
+either result.
+
+Writer tests, self-review, CI, mutation checks, and terminal receipts are
+diagnostic evidence, not acceptance authority. A result passes only when the
+independent evaluator applies the frozen packet successfully. One paired
+difference is an observation, not causal proof.
+
+`KEEP` is available under protocol v2 only after at least two valid `DECISION_BEARING` pairs have observed fixture activation, independent acceptance, and a positive preselected intent-quality signal, with no protocol-v2 invalid pair or hard regression.
 
 For each case, retain:
 
-- the user intent and frozen repository identity;
-- the deterministic acceptance and forbidden-change checks;
-- verified actual model, effort, tools, permissions, and fixture availability;
-- whether useful existing approaches were found;
+- the case ID, protocol version, classification, user intent, and frozen
+  repository identity;
+- known-solution exposure and its source;
+- evaluator identity and independence evidence, evaluator-packet path and
+  content hash, stable criterion IDs, and the mapping from every hidden check
+  to one visible criterion;
+- deterministic commands, forbidden-change checks, budgets, pair attempt
+  ceiling, stop condition, and execution order;
+- verified actual model, effort, tools, permissions, fixture availability, and
+  full-instruction activation evidence;
+- the preselected intent-quality signal, its deterministic evaluation rule,
+  observed value and verdict, supporting evidence identity, and whether useful
+  existing approaches were found;
 - material owner corrections, duration, and exposed usage or cost;
-- the resulting diff, checks, review, and terminal outcome.
+- immutable result identities, resulting diffs and hashes, writer checks,
+  per-criterion and per-check outcomes with evidence hashes or deterministic
+  reproduction commands, independent evaluator verdict, and terminal outcome.
 
 Preflight each pair before execution. If the host cannot expose and bind every
-frozen dimension, mark the pair `INVALID`, do not run or count it, and consume
-one of the five attempts. Any invalid pair prevents `KEEP` in this trial. Stop
-the canary immediately after an authority, security, privacy, or false success
-regression. Also stop and return `MODIFY` after two clear routine tasks are
-unnecessarily escalated into research or decision packets. At the attempt
-ceiling, choose exactly one verdict: `MODIFY` or `REMOVE` when any pair is
-invalid; otherwise choose `KEEP`, `MODIFY`, or `REMOVE`.
+frozen dimension or the evaluator packet cannot be hashed before either writer
+starts, mark the pair `INVALID`, do not run it, and consume one of the five
+attempts. Any invalid protocol-v2 pair prevents `KEEP` under protocol v2.
+Stop the canary immediately after an authority, security, privacy, or
+independently confirmed false-success regression. Also stop and return
+`MODIFY` after two clear routine tasks are unnecessarily escalated into
+research or decision packets. At the protocol-v2 attempt ceiling, choose
+exactly one verdict: `MODIFY` or `REMOVE` when a protocol-v2 pair is invalid
+or fewer than two qualifying positive pairs exist; otherwise choose `KEEP`,
+`MODIFY`, or `REMOVE`.
 
 Do not infer a model-routing policy from this trial. A later controlled routing
 experiment must change exactly one model or effort dimension and satisfy the

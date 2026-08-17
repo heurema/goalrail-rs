@@ -59,6 +59,30 @@ software change without replacing model judgment with a fixed pipeline.
   repository state, permissions, tools, acceptance checks, attempt ceiling, and
   stop condition. Require the actual model, effort, and every frozen dimension
   to be observable; otherwise mark the pair `INVALID` and do not count it.
+- Classify each controlled case before either writer starts.
+- A routine non-regression case cannot provide positive evidence for `KEEP`.
+- Count a decision-bearing treatment as an activation case only when host evidence shows that the full skill instructions loaded.
+- Catalog presence alone is not activation evidence.
+- Give both writers every normative criterion and its stable ID before implementation.
+- Bind the evaluator-owned acceptance packet by content hash before implementation.
+- Include visible completion and forbidden-change checks, deterministic
+  commands, at least one hidden boundary or adversarial check that enforces
+  only the frozen contract, and the terminal verdict schema.
+- Hide only evaluator-check implementation and concrete adversarial inputs.
+- Each hidden check must cite one visible frozen criterion and must not add requirements.
+- Keep acceptance ownership independent of both writers.
+- Give the evaluator the frozen packet and resulting artifacts, hide variant
+  labels when practical, and do not provide writer reasoning or self-assessment.
+- The independent evaluator must not repair either result.
+- A writer's tests, self-review, and terminal receipt are non-authoritative.
+  Accept a result only from the frozen deterministic checks and independent
+  evaluator verdict.
+- Retain the observed result and evidence for every preselected quality signal.
+- Retain one outcome and its evidence or reproduction command for every criterion and check.
+- Record known-solution exposure before execution.
+- Known-solution exposure makes a replay useful only for non-regression, not
+  positive capability evidence.
+- Do not attribute one paired difference to the fixture without replication.
 - Keep deterministic acceptance, authority, security, and evidence failures as
   hard regressions. Evaluate cost, duration, and human correction only after
   those checks pass.

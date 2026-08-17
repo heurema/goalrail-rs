@@ -21,9 +21,10 @@ remove the evidence with the trial if it has no durable value.
 
 - Owner: [decision 0017](decisions/0017-trial-chat-native-development-intent.md)
 - Added: `2026-08-17`
-- Revisit: after at most five real software-change cases, or immediately after
-  a hard regression or two clear false escalations.
-- Current decision: `TRIAL`.
+- Revisit: before live case 002 or after any protocol-v2 invalid pair, hard
+  regression, or second false escalation.
+- Current decision: `TRIAL` under protocol v2; live resume pending separate
+  owner approval.
 
 The source canary keeps one focused `goalrail-intent` skill as an isolated
 fixture outside the packaged plugin. Ordinary Codex chat remains the runtime;
@@ -33,13 +34,99 @@ structure and declared boundaries. Representative GPT, Claude, and Gemini
 identifiers exercise the finite model-name guard; the test does not claim to
 recognize future model names or prove model behavior.
 
-No live case has run yet. The released plugin and marketplace remain unchanged
-and pinned to `v0.3.11`; the fixture has not been loaded through a temporary
-test setup. Record only preselected paired cases where fixture availability is
-the sole changed dimension and every frozen dimension is verified before the
-run. An unverifiable pair is `INVALID`, consumes one attempt, contributes no
-outcome evidence, and prevents `KEEP`. Stop at the first hard regression and
-make exactly one decision at the ceiling as defined by decision 0017.
+The released plugin and marketplace remain unchanged and pinned to `v0.3.11`.
+Record only preselected paired cases where fixture availability is the sole
+changed dimension and every frozen dimension is verified before the run. An
+unverifiable pair is `INVALID`, consumes one attempt, and contributes no
+outcome evidence. Protocol v1 ended with `MODIFY`; protocol-v2 eligibility for
+`KEEP` is calculated only from protocol-v2 pairs under decision 0017.
+
+### Case 001: timeout output routine fix
+
+- Run date: `2026-08-17`.
+- Terminal outcome: `INVALID`; the canary stopped after this pair.
+- Verdict: `MODIFY`.
+- Invalidity evidence: the pre-run record did not bind exact writer budgets,
+  per-pair attempt ceiling, execution order, or a content-hashed acceptance
+  packet. The later sabotage was not preselected. Protocol v1 therefore cannot
+  treat either writer result or the post-run comparison as outcome evidence.
+- Intent: fix the coverage-only failure in
+  `preserves_output_written_before_timeout` without changing dependencies or
+  public API, while preserving already observed stdout and stderr and keeping
+  output draining bounded.
+- Frozen code state: `9222664d5df8f8ea9fc18caeb9c729156a09b9fd`.
+  The treatment seed `2c980484ccfeffd00f8037cda3c018db824765ef`
+  differs from it only by the two files under
+  `.agents/skills/goalrail-intent`.
+- Host controls: both fresh tasks used Codex CLI `0.148.0-alpha.9`,
+  `gpt-5.6-luna`, effort `medium`, approval policy `never`,
+  `danger-full-access`, and the same exposed dynamic tool providers. The
+  baseline catalog omitted `goalrail-intent`; the treatment catalog included
+  it. Both runs had access to the same retained-memory precedent for this
+  historical bug.
+- Tasks: baseline
+  `01a00f19-9798-7010-8917-1092b0ff0efe`; treatment
+  `01a00f19-9798-7010-8917-107cf07da7b5`.
+- Duration and exposed usage: baseline `347307 ms`, `2819856` input tokens
+  with `2696448` cached and `8430` output tokens; treatment `345215 ms`,
+  `2656584` input tokens with `2553856` cached and `7299` output tokens.
+  Cost was not exposed.
+- Baseline result: one-file Rust diff, `134` insertions and `30` deletions,
+  diff SHA-256
+  `734f407613c9a8a7b2bf70ee4b73adddcfffff87ffda82e61ef3d023e0986a13`.
+  Its resulting `process.rs` is byte-identical to the known accepted
+  `d60a0ec` result. Focused test, coverage, CI, diff check, and milestone
+  mutation verification passed.
+- Treatment result: one-file Rust diff, `108` insertions and `25` deletions,
+  diff SHA-256
+  `4b96e77f70a921bb340d618d50155f75bfe6fc93d80d86233fab4e71e2d1821d`.
+  Focused test, coverage, CI, diff check, and milestone mutation verification
+  passed. The writer reported success.
+- Post-run diagnostic sabotage: with a chunk already queued and the reader
+  deadline expired, the baseline returned no bytes and passed. The treatment
+  drained `b"late"` after the deadline and failed. Its receive loop omitted the
+  explicit zero-remaining guard, so queued output can extend draining past the
+  selected deadline. Because this check was not bound before either writer
+  started, it motivated protocol v2 but is not accepted case-001 outcome
+  evidence.
+- Interpretation: the fixture was available but was not observed loading its
+  full instructions for this intentionally routine replay. The invalid pair
+  demonstrates neither intent benefit, treatment harm, nor causal model-routing
+  quality. Its post-run audit exposed that writer tests, CI, mutation checks,
+  and the writer's own receipt were insufficient acceptance evidence.
+- Required modification before another pair: acceptance must be decided by a
+  separately prepared independent evaluator with hidden boundary checks, and
+  writer self-assessment must remain non-authoritative. This requirement is
+  implemented in protocol v2 below.
+
+### Protocol v2 modification
+
+- Modified: `2026-08-17`, after explicit owner approval.
+- Case 001 remains an immutable invalid protocol-v1 receipt and consumed one of
+  the five total attempts. Protocol v1 ended with `MODIFY`. Protocol v2 is a
+  distinct owner-approved modified round with at most four additional pairs;
+  case 001 must not be rerun.
+- Every case is classified before execution. Routine and known-solution replay
+  cases can expose regressions but cannot support `KEEP`. Positive evidence
+  requires a decision-bearing treatment with observed full fixture activation.
+- Before either writer starts, an acceptance owner independent of both writers
+  freezes and content-hashes one evaluator packet. Both writers receive every
+  normative behavior and forbidden change under a stable criterion ID. Only
+  evaluator-check implementation and concrete adversarial inputs may be hidden;
+  every hidden check maps to one visible criterion and cannot add requirements.
+- The independent evaluator receives immutable result artifacts rather than
+  writer reasoning, applies the same packet to both variants, and cannot repair
+  either result. Writer tests, self-review, CI, mutation, and terminal receipts
+  remain diagnostic evidence only.
+- Each receipt retains the quality signal's deterministic rule, observed value,
+  verdict, and evidence identity, plus every criterion/check outcome and its
+  evidence hash or deterministic reproduction command.
+- A single paired difference is not causal proof. `KEEP` requires at least two
+  valid decision-bearing pairs with observed activation, independent
+  acceptance, and a preselected positive intent-quality signal, with no v2 hard
+  regression.
+- No case 002 was started. The released plugin and marketplace remain unchanged
+  at `v0.3.11`; packaging and model-routing decisions remain out of scope.
 
 ## milestone-closure-gate
 

@@ -21,10 +21,10 @@ remove the evidence with the trial if it has no durable value.
 
 - Owner: [decision 0017](decisions/0017-trial-chat-native-development-intent.md)
 - Added: `2026-08-17`
-- Revisit: only after an owner-approved protocol revision can bind practical
-  budget and permission evidence before writer execution.
-- Current decision: `MODIFY`; protocol v2 stopped after the invalid case-002
-  launch preflight.
+- Revisit: after the first protocol-v3 invalid pair or hard regression, or when
+  two valid decision-bearing protocol-v3 pairs have completed.
+- Current decision: `TRIAL` under protocol v3 for contract work only; case 003
+  remains pending separate owner approval.
 
 The source canary keeps one focused `goalrail-intent` skill as an isolated
 fixture outside the packaged plugin. Ordinary Codex chat remains the runtime;
@@ -36,10 +36,11 @@ recognize future model names or prove model behavior.
 
 The released plugin and marketplace remain unchanged and pinned to `v0.3.11`.
 Record only preselected paired cases where fixture availability is the sole
-changed dimension and every frozen dimension is verified before the run. An
-unverifiable pair is `INVALID`, consumes one attempt, and contributes no
-outcome evidence. Protocol v1 ended with `MODIFY`; protocol-v2 eligibility for
-`KEEP` is calculated only from protocol-v2 pairs under decision 0017.
+changed dimension. Protocol v3 freezes a capability matrix that distinguishes
+actual host controls from instructed and independently observed process limits.
+An unverifiable pair is `INVALID`, consumes one attempt after packet freeze,
+and contributes no outcome evidence. Earlier protocol verdicts remain
+immutable and cannot supply protocol-v3 outcome evidence.
 
 ### Case 001: timeout output routine fix
 
@@ -162,6 +163,48 @@ outcome evidence. Protocol v1 ended with `MODIFY`; protocol-v2 eligibility for
   uses observable instructed budgets plus post-run usage receipts, or defer
   until the host exposes the frozen hard controls. Case 002 must not be rerun
   under a weakened interpretation of its packet.
+
+### Protocol v3 modification
+
+- Modified: `2026-08-17`, after the owner approved protocol and test work only.
+  This approval does not authorize case selection, writer-task creation,
+  real-session content access, or live pair execution. Case 003 requires
+  separate owner approval.
+- Cases 001 and 002 remain immutable invalid receipts. They consumed two of the
+  five total attempts and cannot be rerun or reinterpreted. Protocol v3 may use
+  at most the three remaining attempts, and none starts automatically.
+- The selected native option adds no controller. Before reserving a case ID, at
+  most one read-only capability check may reject an unsupported design without
+  creating a writer task or consuming an attempt.
+- Before packet freeze, every comparison dimension must be classified as
+  `HOST_ENFORCED`, `INSTRUCTED_AND_OBSERVED`, or `UNSUPPORTED`, with its common
+  value or instruction, pre-run source, independent post-run observation, and
+  failure rule. `UNSUPPORTED` prevents launch.
+- Host-enforced rows use actual readback for both writers. Requested model or
+  effort values and aliases are not actual-value evidence. Instructed and
+  observed rows are limited to measurable process and resource ceilings; their
+  receipts cannot be replaced by writer self-assessment.
+- The matrix cannot be reclassified or weakened after packet freeze. Packet
+  freeze reserves one attempt. Fresh-task bootstrap may expose host values and
+  establish resource receipts, but performs no repository mutation, external
+  action, research, or real-session read. Implementation starts only after both
+  bootstrap receipts match.
+- Observable instructions are not a sandbox or authority boundary. Protocol v3
+  grants no credential, private-data, network, external-write, commit, push,
+  publication, or deployment authority. Any unapproved external action or
+  sensitive-data access is an immediate hard regression.
+- Missing or contradictory receipts, actual-host mismatch, observation failure,
+  or a ceiling violation makes the pair `INVALID`, consumes the attempt,
+  contributes no outcome evidence, and stops protocol v3 at `MODIFY`.
+- `KEEP` requires at least two valid decision-bearing protocol-v3 pairs with
+  observed full fixture activation, independent acceptance, and a positive
+  preselected intent-quality signal, with no protocol-v3 invalid pair or hard
+  regression. Case 003 must be a new real task rather than a weakened or replayed
+  case-002 packet.
+- No canary case, writer task, implementation worktree, or real-session content
+  read was started while adopting this revision. The independent review reused
+  the existing acceptance reviewer. The fixture, released plugin, marketplace,
+  Rust workspace, and model-routing policy remain unchanged.
 
 ## milestone-closure-gate
 

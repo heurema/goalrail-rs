@@ -105,7 +105,25 @@ validate_trial_contract() {
   require_normalized_text 'verified actual model, effort, tools, permissions, fixture availability, and full-instruction activation evidence;' "$file" || return 1
   require_normalized_text 'the preselected intent-quality signal, its deterministic evaluation rule, observed value and verdict, supporting evidence identity, and whether useful existing approaches were found;' "$file" || return 1
   require_normalized_text 'per-criterion and per-check outcomes with evidence hashes or deterministic reproduction commands, independent evaluator verdict, and terminal outcome.' "$file" || return 1
-  require_text 'Any invalid protocol-v2 pair prevents `KEEP` under protocol v2.' "$file" || return 1
+  require_normalized_text 'Any invalid protocol-v2 pair prevents `KEEP` under protocol v2.' "$file" || return 1
+}
+
+validate_protocol_v3_contract() {
+  file=$1
+
+  require_normalized_text 'The owner accepted protocol v3 as a distinct modified round using only the three unused attempts. This approval covers the protocol specification and its tests, not case selection, writer-task creation, real-session content access, or live pair execution. Case 003 requires separate owner approval.' "$file" || return 1
+  require_normalized_text 'Before reserving a case ID, perform at most one read-only capability check for the proposed pair. Record the current task-creation interfaces and available observation sources. This check creates no writer task, freezes no evaluator packet, and consumes no attempt.' "$file" || return 1
+  require_normalized_text '`HOST_ENFORCED`: the host owns the setting during the run.' "$file" || return 1
+  require_normalized_text 'Model, effort, tool availability, sandbox, approval, and permission claims use actual host readback rather than aliases or requested values.' "$file" || return 1
+  require_normalized_text '`INSTRUCTED_AND_OBSERVED`: both writers receive the same visible process instruction and an evaluator-owned method can measure compliance without accepting writer self-assessment.' "$file" || return 1
+  require_normalized_text '`UNSUPPORTED`: no independent observation method exists or the pair cannot safely continue under the actual host profile. An unsupported row prevents packet freeze and writer-task creation.' "$file" || return 1
+  require_normalized_text 'The enforcement class and observation method are immutable after packet freeze. Never repair a missing receipt, change a class, relax a ceiling, or substitute writer self-report after either writer task starts.' "$file" || return 1
+  require_normalized_text 'Task bootstrap is separate from writer execution.' "$file" || return 1
+  require_normalized_text 'Start writer execution only after both bootstrap receipts match the frozen matrix; otherwise mark the pair `INVALID`, create no implementation diff, and stop the pair.' "$file" || return 1
+  require_normalized_text '`INSTRUCTED_AND_OBSERVED` is not a sandbox, permission boundary, or grant of authority. It must never stand in for credential isolation, privacy, external write protection, or approval.' "$file" || return 1
+  require_normalized_text 'A missing or contradictory receipt, actual-host mismatch, observation-method failure, or budget violation makes the pair `INVALID`, consumes the attempt, contributes no outcome evidence, and stops protocol v3 at `MODIFY`.' "$file" || return 1
+  require_normalized_text '`KEEP` is available under protocol v3 only after at least two valid `DECISION_BEARING` pairs from the three remaining attempts have observed full fixture activation, independent acceptance, and a positive preselected intent-quality signal, with no protocol-v3 invalid pair or hard regression.' "$file" || return 1
+  require_normalized_text 'No case starts automatically, and case 003 must use a new real task rather than weaken or replay the frozen case-002 packet.' "$file" || return 1
 }
 
 validate_case_001_receipt() {
@@ -120,7 +138,6 @@ validate_case_001_receipt() {
 validate_case_002_receipt() {
   file=$1
 
-  require_normalized_text 'Current decision: `MODIFY`; protocol v2 stopped after the invalid case-002 launch preflight.' "$file" || return 1
   require_text '### Case 002: linked-session development boundary' "$file" || return 1
   require_normalized_text 'Evaluator packet: local Git evidence path `.git/goalrail/intent-canary/case-002/evaluator-packet.json`, `23915` bytes, SHA-256 `8c87dd0e2dc5e5aebe37263097ce1d44e793176f1b3a396bad0ce8b3db488abd`.' "$file" || return 1
   require_normalized_text 'Invalidity evidence: task and subagent creation could bind model and effort, but exposed no host-enforced tool-call ceiling.' "$file" || return 1
@@ -131,10 +148,22 @@ validate_case_002_receipt() {
   require_normalized_text 'Case 002 must not be rerun under a weakened interpretation of its packet.' "$file" || return 1
 }
 
+validate_protocol_v3_receipt() {
+  file=$1
+
+  require_normalized_text 'Current decision: `TRIAL` under protocol v3 for contract work only; case 003 remains pending separate owner approval.' "$file" || return 1
+  require_text '### Protocol v3 modification' "$file" || return 1
+  require_normalized_text 'Before packet freeze, every comparison dimension must be classified as `HOST_ENFORCED`, `INSTRUCTED_AND_OBSERVED`, or `UNSUPPORTED`, with its common value or instruction, pre-run source, independent post-run observation, and failure rule.' "$file" || return 1
+  require_normalized_text 'Observable instructions are not a sandbox or authority boundary. Protocol v3 grants no credential, private-data, network, external-write, commit, push, publication, or deployment authority.' "$file" || return 1
+  require_normalized_text 'No canary case, writer task, implementation worktree, or real-session content read was started while adopting this revision. The independent review reused the existing acceptance reviewer. The fixture, released plugin, marketplace, Rust workspace, and model-routing policy remain unchanged.' "$file" || return 1
+}
+
 validate_contract "$skill"
 validate_trial_contract "$decision"
+validate_protocol_v3_contract "$decision"
 validate_case_001_receipt "$trials"
 validate_case_002_receipt "$trials"
+validate_protocol_v3_receipt "$trials"
 
 trial_dir=$(mktemp -d "${TMPDIR:-/tmp}/goalrail-intent-fixture.XXXXXX")
 trap 'rm -rf -- "$trial_dir"' EXIT HUP INT TERM
@@ -249,9 +278,51 @@ if validate_trial_contract "$missing_keep_rule" >/dev/null 2>&1; then
 fi
 
 reversed_invalid_rule="$trial_dir/reversed-invalid-rule.md"
-sed 's/Any invalid protocol-v2 pair prevents `KEEP` under protocol v2./Any invalid protocol-v2 pair permits `KEEP` under protocol v2./' "$decision" >"$reversed_invalid_rule"
+sed 's/Any invalid protocol-v2 pair prevents/Any invalid protocol-v2 pair permits/' "$decision" >"$reversed_invalid_rule"
 if validate_trial_contract "$reversed_invalid_rule" >/dev/null 2>&1; then
   echo "Goalrail intent trial accepted an invalid pair as KEEP evidence" >&2
+  exit 1
+fi
+
+missing_v3_owner_gate="$trial_dir/missing-v3-owner-gate.md"
+sed 's/This approval covers/This approval omits/' "$decision" >"$missing_v3_owner_gate"
+if validate_protocol_v3_contract "$missing_v3_owner_gate" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v3 without a separate live-case approval" >&2
+  exit 1
+fi
+
+missing_v3_capability_boundary="$trial_dir/missing-v3-capability-boundary.md"
+sed '/This check creates no writer task, freezes no evaluator/d' "$decision" >"$missing_v3_capability_boundary"
+if validate_protocol_v3_contract "$missing_v3_capability_boundary" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted a capability probe that consumes a case" >&2
+  exit 1
+fi
+
+missing_v3_class_freeze="$trial_dir/missing-v3-class-freeze.md"
+sed '/The enforcement class and observation method are immutable after packet/d' "$decision" >"$missing_v3_class_freeze"
+if validate_protocol_v3_contract "$missing_v3_class_freeze" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted post-freeze control reclassification" >&2
+  exit 1
+fi
+
+missing_v3_authority_boundary="$trial_dir/missing-v3-authority-boundary.md"
+sed '/`INSTRUCTED_AND_OBSERVED` is not a sandbox, permission boundary, or grant/d' "$decision" >"$missing_v3_authority_boundary"
+if validate_protocol_v3_contract "$missing_v3_authority_boundary" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted observable instructions as an authority boundary" >&2
+  exit 1
+fi
+
+missing_v3_invalid_rule="$trial_dir/missing-v3-invalid-rule.md"
+sed 's/contradictory receipt/contradictory note/' "$decision" >"$missing_v3_invalid_rule"
+if validate_protocol_v3_contract "$missing_v3_invalid_rule" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted missing protocol-v3 invalidity evidence" >&2
+  exit 1
+fi
+
+missing_v3_keep_rule="$trial_dir/missing-v3-keep-rule.md"
+sed '/`KEEP` is available under protocol v3 only after at least two valid/d' "$decision" >"$missing_v3_keep_rule"
+if validate_protocol_v3_contract "$missing_v3_keep_rule" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted a missing protocol-v3 KEEP threshold" >&2
   exit 1
 fi
 
@@ -325,4 +396,11 @@ if validate_case_002_receipt "$missing_case_002_token_gap" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "GOALRAIL_INTENT_FIXTURE_CONTRACT_OK scope=structure-declared-boundary-independent-evaluator-representative-identifiers"
+missing_v3_no_launch_receipt="$trial_dir/missing-v3-no-launch-receipt.md"
+sed '/No canary case, writer task, implementation worktree, or real-session/d' "$trials" >"$missing_v3_no_launch_receipt"
+if validate_protocol_v3_receipt "$missing_v3_no_launch_receipt" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v3 without a no-launch receipt" >&2
+  exit 1
+fi
+
+echo "GOALRAIL_INTENT_FIXTURE_CONTRACT_OK scope=structure-declared-boundary-independent-evaluator-observable-controls-representative-identifiers"

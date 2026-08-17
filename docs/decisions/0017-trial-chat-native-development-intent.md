@@ -1,7 +1,7 @@
 # Decision 0017: Trial chat-native development intent
 
-- **Status:** isolated evaluation fixture; protocol v2 stopped at `MODIFY`
-  after the case-002 launch preflight was `INVALID`
+- **Status:** isolated evaluation fixture; protocol v3 accepted for contract
+  work only, with case 003 pending separate owner approval
 - **Date:** 2026-08-17
 - **Owner:** project owner
 
@@ -104,6 +104,13 @@ The canary stopped at `MODIFY`; the three unused attempts do not start
 automatically. A practical budget or permission contract requires a separate
 owner-approved protocol revision rather than a post-hoc weakening of case 002.
 
+The owner accepted protocol v3 as a distinct modified round using only the
+three unused attempts. This approval covers the protocol specification and its
+tests, not case selection, writer-task creation, real-session content access,
+or live pair execution. Case 003 requires separate owner approval. Cases 001
+and 002 remain immutable invalid receipts and must not be rerun or reinterpreted
+under protocol v3.
+
 Compare ordinary Codex behavior with behavior when the fixture is loaded from
 the same frozen starting state. Fixture availability is the only changed
 dimension in each pair: use the same exact model, effort, tools, permissions,
@@ -164,10 +171,11 @@ For each case, retain:
   per-criterion and per-check outcomes with evidence hashes or deterministic
   reproduction commands, independent evaluator verdict, and terminal outcome.
 
-Preflight each pair before execution. If the host cannot expose and bind every
-frozen dimension or the evaluator packet cannot be hashed before either writer
-starts, mark the pair `INVALID`, do not run it, and consume one of the five
-attempts. Any invalid protocol-v2 pair prevents `KEEP` under protocol v2.
+Under protocol v2, preflight each pair before execution. If the host cannot
+expose and bind every frozen dimension or the evaluator packet cannot be hashed
+before either writer starts, mark the pair `INVALID`, do not run it, and consume
+one of the five attempts. Any invalid protocol-v2 pair prevents `KEEP` under
+protocol v2.
 Stop the canary immediately after an authority, security, privacy, or
 independently confirmed false-success regression. Also stop and return
 `MODIFY` after two clear routine tasks are unnecessarily escalated into
@@ -175,6 +183,80 @@ research or decision packets. At the protocol-v2 attempt ceiling, choose
 exactly one verdict: `MODIFY` or `REMOVE` when a protocol-v2 pair is invalid
 or fewer than two qualifying positive pairs exist; otherwise choose `KEEP`,
 `MODIFY`, or `REMOVE`.
+
+### Protocol v3: observable native controls
+
+The revision question is whether to wait for future host controls, add an
+external controller, or keep native Codex execution while distinguishing
+host-enforced controls from instructed and independently observed process
+limits. Waiting preserves the protocol-v2 guarantee but produces no evidence.
+An external controller could enforce more limits but would add the executor and
+authority surface this trial exists to avoid. Select the native observable
+option. It is the smallest reversible change and admits less certainty instead
+of claiming unavailable enforcement.
+
+Before reserving a case ID, perform at most one read-only capability check for
+the proposed pair. Record the current task-creation interfaces and available
+observation sources. This check creates no writer task, freezes no evaluator
+packet, and consumes no attempt. It may reject an unsupported design but cannot
+serve as evidence that a later run used the same controls.
+
+Before either writer performs repository work, freeze one capability matrix
+with a row for every comparison dimension. Each row contains the dimension,
+one of the following enforcement classes, the common required value or
+instruction, the pre-run evidence source, the post-run observation source, and
+the failure rule:
+
+- `HOST_ENFORCED`: the host owns the setting during the run. The packet may
+  bind a requested value or an equality rule when the host exposes no creation
+  setter, but both writers must expose the same actual value before repository
+  work. Model, effort, tool availability, sandbox, approval, and permission
+  claims use actual host readback rather than aliases or requested values.
+- `INSTRUCTED_AND_OBSERVED`: both writers receive the same visible process
+  instruction and an evaluator-owned method can measure compliance without
+  accepting writer self-assessment. This class is limited to comparison and
+  resource controls such as tool-call, token, time, round, or retry ceilings.
+- `UNSUPPORTED`: no independent observation method exists or the pair cannot
+  safely continue under the actual host profile. An unsupported row prevents
+  packet freeze and writer-task creation.
+
+The enforcement class and observation method are immutable after packet
+freeze. Never repair a missing receipt, change a class, relax a ceiling, or
+substitute writer self-report after either writer task starts. Freezing the
+evaluator packet and capability matrix reserves one of the three remaining
+attempts. A later bootstrap or execution failure consumes that attempt.
+
+Task bootstrap is separate from writer execution. Each fresh task may only
+establish the predeclared resource receipt and expose actual host-controlled
+values before the implementation prompt is released. Bootstrap performs no
+repository mutation, external action, research, or real-session read. Start
+writer execution only after both bootstrap receipts match the frozen matrix;
+otherwise mark the pair `INVALID`, create no implementation diff, and stop the
+pair.
+
+`INSTRUCTED_AND_OBSERVED` is not a sandbox, permission boundary, or grant of
+authority. It must never stand in for credential isolation, privacy, external
+write protection, or approval. Protocol v3 grants no new tool, filesystem,
+network, credential, session, commit, push, publication, or deployment
+authority. Select cases that require only already-authorized local repository
+work, put no secrets or private session content in the packet, and treat any
+unapproved external action or sensitive-data access as an immediate hard
+regression.
+
+A completed pair is valid only when both variants have immutable result
+identities, matching `HOST_ENFORCED` readbacks, complete independent receipts
+for every `INSTRUCTED_AND_OBSERVED` row, no ceiling violation, evaluator-packet
+acceptance, and all existing protocol-v2 comparison evidence. A missing or
+contradictory receipt, actual-host mismatch, observation-method failure, or
+budget violation makes the pair `INVALID`, consumes the attempt, contributes no
+outcome evidence, and stops protocol v3 at `MODIFY`.
+
+`KEEP` is available under protocol v3 only after at least two valid
+`DECISION_BEARING` pairs from the three remaining attempts have observed full
+fixture activation, independent acceptance, and a positive preselected
+intent-quality signal, with no protocol-v3 invalid pair or hard regression.
+No case starts automatically, and case 003 must use a new real task rather than
+weaken or replay the frozen case-002 packet.
 
 Do not infer a model-routing policy from this trial. A later controlled routing
 experiment must change exactly one model or effort dimension and satisfy the

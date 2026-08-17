@@ -21,10 +21,10 @@ remove the evidence with the trial if it has no durable value.
 
 - Owner: [decision 0017](decisions/0017-trial-chat-native-development-intent.md)
 - Added: `2026-08-17`
-- Revisit: before live case 002 or after any protocol-v2 invalid pair, hard
-  regression, or second false escalation.
-- Current decision: `TRIAL` under protocol v2; live resume pending separate
-  owner approval.
+- Revisit: only after an owner-approved protocol revision can bind practical
+  budget and permission evidence before writer execution.
+- Current decision: `MODIFY`; protocol v2 stopped after the invalid case-002
+  launch preflight.
 
 The source canary keeps one focused `goalrail-intent` skill as an isolated
 fixture outside the packaged plugin. Ordinary Codex chat remains the runtime;
@@ -125,8 +125,43 @@ outcome evidence. Protocol v1 ended with `MODIFY`; protocol-v2 eligibility for
   valid decision-bearing pairs with observed activation, independent
   acceptance, and a preselected positive intent-quality signal, with no v2 hard
   regression.
-- No case 002 was started. The released plugin and marketplace remain unchanged
-  at `v0.3.11`; packaging and model-routing decisions remain out of scope.
+- Case 002 reached launch preflight but no writer started. The released plugin
+  and marketplace remain unchanged at `v0.3.11`; packaging and model-routing
+  decisions remain out of scope.
+
+### Case 002: linked-session development boundary
+
+- Preflight date: `2026-08-17`.
+- Classification: `DECISION_BEARING` under protocol v2.
+- Intent: find the smallest native way to use linked Codex sessions to improve
+  Goalrail development while defining read, retention, privacy, and authority
+  boundaries and avoiding an unproven daemon, database, or orchestration layer.
+- Frozen repository: commit
+  `0b94bec1411ff458fc71f52ff4eca99ece7b4bae`, tree
+  `f49b595ebfa4b277840aa6903cf186df64e8407b`.
+- Independent acceptance owner:
+  `01a00f53-ee1a-7c32-b740-5e6af86b4e3f`.
+- Evaluator packet: local Git evidence path
+  `.git/goalrail/intent-canary/case-002/evaluator-packet.json`, `23915` bytes,
+  SHA-256
+  `8c87dd0e2dc5e5aebe37263097ce1d44e793176f1b3a396bad0ce8b3db488abd`.
+  The writer-visible contract was separated before launch; hidden evaluator
+  checks were not exposed to a writer.
+- Invalidity evidence: task and subagent creation could bind model and effort,
+  but exposed no host-enforced tool-call ceiling. Project task creation also
+  exposed no pre-start permission, sandbox, approval, credential, or network
+  policy binding, and the available goal token budget could be created only
+  after a task already existed. The frozen packet required all three controls
+  before either writer started.
+- Terminal outcome: `INVALID`; no writer task was created, no worktree was
+  created, and no real session content was read.
+- Trial effect: case 002 consumed the second of five total attempts, contributes
+  no outcome evidence, prevents protocol-v2 `KEEP`, and stops the canary at
+  `MODIFY`. The three unused attempts remain unstarted.
+- Required owner decision: either adopt a separately reviewed protocol that
+  uses observable instructed budgets plus post-run usage receipts, or defer
+  until the host exposes the frozen hard controls. Case 002 must not be rerun
+  under a weakened interpretation of its packet.
 
 ## milestone-closure-gate
 

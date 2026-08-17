@@ -94,6 +94,8 @@ validate_trial_contract() {
   require_normalized_text 'Case 001 consumed one attempt under protocol v1. A post-run audit classified it `INVALID`, so protocol v1 ended with `MODIFY` and contributes no outcome evidence.' "$file" || return 1
   require_normalized_text 'The owner accepted protocol v2 as a distinct modified round with at most four additional pairs; no pair starts automatically.' "$file" || return 1
   require_normalized_text 'Protocol-v1 invalidity neither supports nor blocks a protocol-v2 `KEEP`; its carried effects are the consumed attempt and the required protocol change.' "$file" || return 1
+  require_normalized_text 'Case 002 consumed a second attempt under protocol v2. Its independent evaluator packet was frozen before launch, but the available host interfaces could not bind the packet' "$file" || return 1
+  require_normalized_text 'No writer started. The pair is therefore `INVALID`, contributes no outcome evidence, and prevents protocol-v2 `KEEP`. The canary stopped at `MODIFY`; the three unused attempts do not start automatically.' "$file" || return 1
   require_normalized_text 'Every normative expected behavior and forbidden change must have a stable criterion ID and be visible to both writers before they start.' "$file" || return 1
   require_normalized_text 'Only the implementation of an evaluator check and its concrete adversarial inputs may remain hidden. Every hidden check must cite one visible criterion ID and may test only that criterion; an evaluator must reject a hidden check that adds a normative requirement.' "$file" || return 1
   require_normalized_text '`KEEP` is available under protocol v2 only after at least two valid `DECISION_BEARING` pairs have observed fixture activation, independent acceptance, and a positive preselected intent-quality signal, with no protocol-v2 invalid pair or hard regression.' "$file" || return 1
@@ -115,9 +117,24 @@ validate_case_001_receipt() {
   require_normalized_text 'Protocol v1 ended with `MODIFY`. Protocol v2 is a distinct owner-approved modified round with at most four additional pairs; case 001 must not be rerun.' "$file" || return 1
 }
 
+validate_case_002_receipt() {
+  file=$1
+
+  require_normalized_text 'Current decision: `MODIFY`; protocol v2 stopped after the invalid case-002 launch preflight.' "$file" || return 1
+  require_text '### Case 002: linked-session development boundary' "$file" || return 1
+  require_normalized_text 'Evaluator packet: local Git evidence path `.git/goalrail/intent-canary/case-002/evaluator-packet.json`, `23915` bytes, SHA-256 `8c87dd0e2dc5e5aebe37263097ce1d44e793176f1b3a396bad0ce8b3db488abd`.' "$file" || return 1
+  require_normalized_text 'Invalidity evidence: task and subagent creation could bind model and effort, but exposed no host-enforced tool-call ceiling.' "$file" || return 1
+  require_normalized_text 'Project task creation also exposed no pre-start permission, sandbox, approval, credential, or network policy binding' "$file" || return 1
+  require_normalized_text 'the available goal token budget could be created only after a task already existed.' "$file" || return 1
+  require_normalized_text 'Terminal outcome: `INVALID`; no writer task was created, no worktree was created, and no real session content was read.' "$file" || return 1
+  require_normalized_text 'Trial effect: case 002 consumed the second of five total attempts, contributes no outcome evidence, prevents protocol-v2 `KEEP`, and stops the canary at `MODIFY`. The three unused attempts remain unstarted.' "$file" || return 1
+  require_normalized_text 'Case 002 must not be rerun under a weakened interpretation of its packet.' "$file" || return 1
+}
+
 validate_contract "$skill"
 validate_trial_contract "$decision"
 validate_case_001_receipt "$trials"
+validate_case_002_receipt "$trials"
 
 trial_dir=$(mktemp -d "${TMPDIR:-/tmp}/goalrail-intent-fixture.XXXXXX")
 trap 'rm -rf -- "$trial_dir"' EXIT HUP INT TERM
@@ -277,6 +294,34 @@ missing_case_001_invalidity="$trial_dir/missing-case-001-invalidity.md"
 sed '/Invalidity evidence: the pre-run record did not bind exact writer budgets,/d' "$trials" >"$missing_case_001_invalidity"
 if validate_case_001_receipt "$missing_case_001_invalidity" >/dev/null 2>&1; then
   echo "Goalrail intent trial accepted missing case-001 invalidity evidence" >&2
+  exit 1
+fi
+
+misclassified_case_002="$trial_dir/misclassified-case-002.md"
+sed 's/Terminal outcome: `INVALID`; no writer task was created/Terminal outcome: `PASS`; no writer task was created/' "$trials" >"$misclassified_case_002"
+if validate_case_002_receipt "$misclassified_case_002" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted a misclassified case 002" >&2
+  exit 1
+fi
+
+missing_case_002_host_gap="$trial_dir/missing-case-002-host-gap.md"
+sed '/Invalidity evidence: task and subagent creation could bind model and effort,/d' "$trials" >"$missing_case_002_host_gap"
+if validate_case_002_receipt "$missing_case_002_host_gap" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted missing case-002 host-gap evidence" >&2
+  exit 1
+fi
+
+missing_case_002_permission_gap="$trial_dir/missing-case-002-permission-gap.md"
+sed '/exposed no pre-start permission, sandbox, approval, credential, or network/d' "$trials" >"$missing_case_002_permission_gap"
+if validate_case_002_receipt "$missing_case_002_permission_gap" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted missing case-002 permission-gap evidence" >&2
+  exit 1
+fi
+
+missing_case_002_token_gap="$trial_dir/missing-case-002-token-gap.md"
+sed '/policy binding, and the available goal token budget could be created only/d' "$trials" >"$missing_case_002_token_gap"
+if validate_case_002_receipt "$missing_case_002_token_gap" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted missing case-002 token-gap evidence" >&2
   exit 1
 fi
 

@@ -1,7 +1,7 @@
 # Decision 0017: Trial chat-native development intent
 
-- **Status:** isolated evaluation fixture; protocol v2 accepted after case 001,
-  next live case pending separate owner approval
+- **Status:** isolated evaluation fixture; protocol v2 stopped at `MODIFY`
+  after the case-002 launch preflight was `INVALID`
 - **Date:** 2026-08-17
 - **Owner:** project owner
 
@@ -94,6 +94,15 @@ evidence. The owner accepted protocol v2 as a distinct modified round with at
 most four additional pairs; no pair starts automatically. Do not rerun case
 001. Protocol-v1 invalidity neither supports nor blocks a protocol-v2 `KEEP`;
 its carried effects are the consumed attempt and the required protocol change.
+
+Case 002 consumed a second attempt under protocol v2. Its independent evaluator
+packet was frozen before launch, but the available host interfaces could not
+bind the packet's required hard tool-call ceiling, permission profile, or token
+budget before writer task creation. No writer started. The pair is therefore
+`INVALID`, contributes no outcome evidence, and prevents protocol-v2 `KEEP`.
+The canary stopped at `MODIFY`; the three unused attempts do not start
+automatically. A practical budget or permission contract requires a separate
+owner-approved protocol revision rather than a post-hoc weakening of case 002.
 
 Compare ordinary Codex behavior with behavior when the fixture is loaded from
 the same frozen starting state. Fixture availability is the only changed

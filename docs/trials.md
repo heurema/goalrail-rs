@@ -17,6 +17,30 @@ decision: `KEEP`, `MODIFY`, `MOVE`, or `REMOVE`. While a trial is active, append
 new observations. When cleaning it up, either retain one final summary or
 remove the evidence with the trial if it has no durable value.
 
+## chat-native-development-intent
+
+- Owner: [decision 0017](decisions/0017-trial-chat-native-development-intent.md)
+- Added: `2026-08-17`
+- Revisit: after at most five real software-change cases, or immediately after
+  a hard regression or two clear false escalations.
+- Current decision: `TRIAL`.
+
+The source canary keeps one focused `goalrail-intent` skill as an isolated
+fixture outside the packaged plugin. Ordinary Codex chat remains the runtime;
+the fixture adds no executor, model router, fixed role chain, Rust command, MCP
+server, hook, or persistent state. Its local contract test proves only fixture
+structure and declared boundaries. Representative GPT, Claude, and Gemini
+identifiers exercise the finite model-name guard; the test does not claim to
+recognize future model names or prove model behavior.
+
+No live case has run yet. The released plugin and marketplace remain unchanged
+and pinned to `v0.3.11`; the fixture has not been loaded through a temporary
+test setup. Record only preselected paired cases where fixture availability is
+the sole changed dimension and every frozen dimension is verified before the
+run. An unverifiable pair is `INVALID`, consumes one attempt, contributes no
+outcome evidence, and prevents `KEEP`. Stop at the first hard regression and
+make exactly one decision at the ceiling as defined by decision 0017.
+
 ## milestone-closure-gate
 
 - Owner: [`AGENTS.md`](../AGENTS.md#milestone-closure-gate)

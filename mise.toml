@@ -36,6 +36,7 @@ run = [
   { task = "architecture:assessment" },
   { task = "test:assessment-boundary" },
   { task = "test:goalrail-plugin" },
+  { task = "test:goalrail-intent-fixture" },
   { task = "test:homebrew-update-state" },
   { task = "test:plugin-update-target" },
   { task = "release:test" },
@@ -104,6 +105,10 @@ run = "./scripts/test-assessment-boundary.sh"
 [tasks."test:goalrail-plugin"]
 description = "Validate the repo marketplace and Goalrail Codex plugin package"
 run = "./scripts/test-goalrail-plugin.sh"
+
+[tasks."test:goalrail-intent-fixture"]
+description = "Validate the isolated Goalrail development-intent trial fixture"
+run = "./scripts/test-goalrail-intent-fixture.sh"
 
 [tasks."test:homebrew-update-state"]
 description = "Sabotage-test the bundled Homebrew update-state normalizer"

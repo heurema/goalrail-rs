@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goalrail Intent"
+  short_description: "Prepare evidence-backed software change intent"
+  default_prompt: "Use $goalrail-intent to clarify this software change before implementation."

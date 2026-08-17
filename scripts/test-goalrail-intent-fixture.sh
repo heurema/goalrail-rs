@@ -94,6 +94,9 @@ validate_trial_contract() {
   require_normalized_text 'Case 001 consumed one attempt under protocol v1. A post-run audit classified it `INVALID`, so protocol v1 ended with `MODIFY` and contributes no outcome evidence.' "$file" || return 1
   require_normalized_text 'The owner accepted protocol v2 as a distinct modified round with at most four additional pairs; no pair starts automatically.' "$file" || return 1
   require_normalized_text 'Protocol-v1 invalidity neither supports nor blocks a protocol-v2 `KEEP`; its carried effects are the consumed attempt and the required protocol change.' "$file" || return 1
+  require_normalized_text 'Comparison equality follows the protocol' "$file" || return 1
+  require_normalized_text 'use actual model, effort, tool, and permission values only when the host exposes them and that protocol requires their readback.' "$file" || return 1
+  require_normalized_text 'Under protocol v4, use the same exact requested-and-CLI-accepted model and effort identifiers, launcher security and tool-availability controls, observed tool invocations, budgets, acceptance checks, and attempt ceiling; never upgrade those receipts into actual backend or complete-inventory claims.' "$file" || return 1
   require_normalized_text 'Case 002 consumed a second attempt under protocol v2. Its independent evaluator packet was frozen before launch, but the available host interfaces could not bind the packet' "$file" || return 1
   require_normalized_text 'No writer started. The pair is therefore `INVALID`, contributes no outcome evidence, and prevents protocol-v2 `KEEP`. The canary stopped at `MODIFY`; the three unused attempts do not start automatically.' "$file" || return 1
   require_normalized_text 'Every normative expected behavior and forbidden change must have a stable criterion ID and be visible to both writers before they start.' "$file" || return 1
@@ -102,7 +105,8 @@ validate_trial_contract() {
   require_normalized_text 'the case ID, protocol version, classification, user intent, and frozen repository identity;' "$file" || return 1
   require_normalized_text 'evaluator identity and independence evidence, evaluator-packet path and content hash, stable criterion IDs, and the mapping from every hidden check to one visible criterion;' "$file" || return 1
   require_normalized_text 'deterministic commands, forbidden-change checks, budgets, pair attempt ceiling, stop condition, and execution order;' "$file" || return 1
-  require_normalized_text 'verified actual model, effort, tools, permissions, fixture availability, and full-instruction activation evidence;' "$file" || return 1
+  require_normalized_text 'model, effort, tools, and permissions according to the frozen protocol' "$file" || return 1
+  require_normalized_text 'actual readback only when the host exposes it, otherwise exact requested-and-CLI-accepted settings plus observed tool invocations, with every unexposed property labeled;' "$file" || return 1
   require_normalized_text 'the preselected intent-quality signal, its deterministic evaluation rule, observed value and verdict, supporting evidence identity, and whether useful existing approaches were found;' "$file" || return 1
   require_normalized_text 'per-criterion and per-check outcomes with evidence hashes or deterministic reproduction commands, independent evaluator verdict, and terminal outcome.' "$file" || return 1
   require_normalized_text 'Any invalid protocol-v2 pair prevents `KEEP` under protocol v2.' "$file" || return 1
@@ -124,6 +128,31 @@ validate_protocol_v3_contract() {
   require_normalized_text 'A missing or contradictory receipt, actual-host mismatch, observation-method failure, or budget violation makes the pair `INVALID`, consumes the attempt, contributes no outcome evidence, and stops protocol v3 at `MODIFY`.' "$file" || return 1
   require_normalized_text '`KEEP` is available under protocol v3 only after at least two valid `DECISION_BEARING` pairs from the three remaining attempts have observed full fixture activation, independent acceptance, and a positive preselected intent-quality signal, with no protocol-v3 invalid pair or hard regression.' "$file" || return 1
   require_normalized_text 'No case starts automatically, and case 003 must use a new real task rather than weaken or replay the frozen case-002 packet.' "$file" || return 1
+}
+
+validate_protocol_v4_contract() {
+  file=$1
+
+  require_normalized_text 'After the owner separately approved case 003 launch, deployment preflight found that the frozen `codex exec --ephemeral` interface could not expose both fresh tasks' "$file" || return 1
+  require_normalized_text 'The pair ended `INVALID_PRELAUNCH`; no writer, worktree, model invocation, or repository work started. Case 003 consumed the third of five attempts, protocol v3 ended at `MODIFY`, and two attempts remain.' "$file" || return 1
+  require_text '### Protocol v4: launcher-bound native execution' "$file" || return 1
+  require_normalized_text 'A controller would add the executor and authority surface this trial is intended to avoid. Waiting would preserve the stronger claim but produce no evidence. Select a launcher-bound native contract and explicitly drop claims that the host interface cannot expose.' "$file" || return 1
+  require_normalized_text '`LAUNCHER_BOUND`: the exact Codex CLI version, complete argv and config overrides, immutable artifact identities, repository seed, execution order, and output schema are fixed before task creation.' "$file" || return 1
+  require_normalized_text 'The launcher records the requested model identifier and effort, but calls them `REQUESTED_AND_CLI_ACCEPTED`, not actual backend identity.' "$file" || return 1
+  require_normalized_text '`INSTRUCTED_AND_OBSERVED`: both writers receive the same visible process limit and evaluator-owned JSONL or clock evidence measures compliance without accepting writer self-assessment.' "$file" || return 1
+  require_normalized_text '`UNSUPPORTED`: the required equality, authority boundary, or observation cannot be established safely. An unsupported row prevents packet freeze.' "$file" || return 1
+  require_normalized_text 'The native launch contract must use one exact `codex exec` command template for both variants, with only the worktree path varying.' "$file" || return 1
+  require_normalized_text 'It must explicitly bind the model and effort, `approval_policy = "never"`, `sandbox_mode = "workspace-write"`, no additional writable roots, workspace-write network disabled, web search disabled, apps disabled, multi-agent tools disabled, restricted shell-environment inheritance, ignored user configuration, ephemeral execution, JSONL, and the frozen output schema.' "$file" || return 1
+  require_normalized_text 'The frozen repository must contain no project Codex configuration that can vary the pair. Both seeds must prove that fixture availability is their only difference.' "$file" || return 1
+  require_normalized_text 'After both preflight receipts match, run each fresh ephemeral task directly with the byte-identical writer prompt; protocol v4 has no synthetic in-task bootstrap or resume phase.' "$file" || return 1
+  require_normalized_text 'A native JSONL start event proves only that the CLI accepted and started that launch contract. It does not prove an immutable model snapshot, the provider' "$file" || return 1
+  require_normalized_text 'Protocol v4 may compare behavior under equal requested-and-accepted native settings. It must not support a model ranking, effort ranking, snapshot-equality claim, complete-tool-inventory claim, or a security claim broader than the explicit native controls.' "$file" || return 1
+  require_normalized_text 'Neither `LAUNCHER_BOUND` nor `INSTRUCTED_AND_OBSERVED` grants authority.' "$file" || return 1
+  require_normalized_text 'Exact CLI flags, a started task, skill instructions, or prompt text do not authorize credential use, private or sensitive reads, network or search access, external writes, sends, installation, configuration mutation, commit, push, release, publication, or deployment.' "$file" || return 1
+  require_normalized_text 'Existing owner and project authority remains the only authority source; any such unapproved action is a hard regression.' "$file" || return 1
+  require_normalized_text 'Missing or contradictory launch evidence, CLI rejection, an uncountable event stream, a second seed difference, a budget violation, private or sensitive access, or an unauthorized external action makes the pair `INVALID`, consumes the attempt, contributes no outcome evidence, and stops protocol v4 at `MODIFY`.' "$file" || return 1
+  require_normalized_text '`KEEP` is available under protocol v4 only if both remaining attempts are valid `DECISION_BEARING` pairs with observed full fixture activation, independent acceptance, and positive preselected intent-quality signals, with no v4 invalid pair or hard regression.' "$file" || return 1
+  require_normalized_text 'Case 004, if selected, must be frozen from a clean committed tree containing this protocol and must use a new evaluator packet rather than repair case 003.' "$file" || return 1
 }
 
 validate_case_001_receipt() {
@@ -151,19 +180,48 @@ validate_case_002_receipt() {
 validate_protocol_v3_receipt() {
   file=$1
 
-  require_normalized_text 'Current decision: `TRIAL` under protocol v3 for contract work only; case 003 remains pending separate owner approval.' "$file" || return 1
   require_text '### Protocol v3 modification' "$file" || return 1
   require_normalized_text 'Before packet freeze, every comparison dimension must be classified as `HOST_ENFORCED`, `INSTRUCTED_AND_OBSERVED`, or `UNSUPPORTED`, with its common value or instruction, pre-run source, independent post-run observation, and failure rule.' "$file" || return 1
   require_normalized_text 'Observable instructions are not a sandbox or authority boundary. Protocol v3 grants no credential, private-data, network, external-write, commit, push, publication, or deployment authority.' "$file" || return 1
   require_normalized_text 'No canary case, writer task, implementation worktree, or real-session content read was started while adopting this revision. The independent review reused the existing acceptance reviewer. The fixture, released plugin, marketplace, Rust workspace, and model-routing policy remain unchanged.' "$file" || return 1
 }
 
+validate_case_003_receipt() {
+  file=$1
+
+  require_text '### Case 003: architecture drift baseline decision' "$file" || return 1
+  require_normalized_text 'Frozen packet: local Git evidence path `.git/goalrail/intent-canary/case-003/evaluator-packet.json`, SHA-256 `91920dc517a9178e60cf48da7ab73f6b39c965ec99c0c1feab98449d73eaacf9`.' "$file" || return 1
+  require_normalized_text 'The terminal launch-feasibility receipt is `.git/goalrail/intent-canary/case-003/launch-feasibility.json`, SHA-256 `9e659d49d46ccc88b9c812e8d56c995497bb2481f3823f321008335154cd7309`.' "$file" || return 1
+  require_normalized_text 'Launch authority was granted, but deployment preflight stopped before task creation.' "$file" || return 1
+  require_normalized_text 'The required two same-task actual-host bootstrap receipts therefore could not exist before repository work.' "$file" || return 1
+  require_normalized_text 'Terminal outcome: `INVALID_PRELAUNCH`; no writer task, model invocation, experiment worktree, repository work, tracked edit, commit, push, or external write occurred.' "$file" || return 1
+  require_normalized_text 'Trial effect: case 003 consumed the third of five attempts, contributes no outcome evidence, prevents protocol-v3 `KEEP`, and stops protocol v3 at `MODIFY`. Two attempts remain unstarted.' "$file" || return 1
+}
+
+validate_protocol_v4_receipt() {
+  file=$1
+
+  require_normalized_text 'Current decision: `TRIAL` under protocol v4 for contract work only; no v4 case is reserved or authorized for live execution.' "$file" || return 1
+  require_text '### Protocol v4 modification' "$file" || return 1
+  require_normalized_text 'This approval covers the protocol source of truth and sabotage tests only. It does not reserve case 004, freeze its packet, create writers or worktrees, invoke a model, or authorize live execution.' "$file" || return 1
+  require_normalized_text '`LAUNCHER_BOUND` rows freeze the exact CLI version, complete argv and config, artifact hashes, output schema, repository seeds, and execution order.' "$file" || return 1
+  require_normalized_text 'Requested model and effort values are recorded as `REQUESTED_AND_CLI_ACCEPTED`, never as actual backend snapshot evidence.' "$file" || return 1
+  require_normalized_text 'Writers then run directly as fresh ephemeral tasks with the byte-identical prompt. There is no in-task bootstrap or resume phase.' "$file" || return 1
+  require_normalized_text 'Protocol v4 does not claim actual backend snapshot equality, complete tool-inventory equality, model ranking, effort ranking, or a broader security boundary than the explicit native controls.' "$file" || return 1
+  require_normalized_text 'Neither launcher-bound settings, observed process limits, task start, skill instructions, nor prompt text grants credential, private-data, network, search, external-write, send, install, configuration, commit, push, release, publication, or deployment authority.' "$file" || return 1
+  require_normalized_text '`KEEP` requires both remaining attempts to be valid decision-bearing pairs with observed full fixture activation, independent acceptance, and positive preselected quality signals, with no protocol-v4 invalid pair or hard regression.' "$file" || return 1
+  require_normalized_text 'No v4 case, packet, writer, worktree, model invocation, or real-session read was created while adopting this revision. The fixture, released plugin, marketplace, Rust workspace, and model-routing policy remain unchanged.' "$file" || return 1
+}
+
 validate_contract "$skill"
 validate_trial_contract "$decision"
 validate_protocol_v3_contract "$decision"
+validate_protocol_v4_contract "$decision"
 validate_case_001_receipt "$trials"
 validate_case_002_receipt "$trials"
 validate_protocol_v3_receipt "$trials"
+validate_case_003_receipt "$trials"
+validate_protocol_v4_receipt "$trials"
 
 trial_dir=$(mktemp -d "${TMPDIR:-/tmp}/goalrail-intent-fixture.XXXXXX")
 trap 'rm -rf -- "$trial_dir"' EXIT HUP INT TERM
@@ -277,6 +335,13 @@ if validate_trial_contract "$missing_keep_rule" >/dev/null 2>&1; then
   exit 1
 fi
 
+missing_protocol_aware_equality="$trial_dir/missing-protocol-aware-equality.md"
+sed '/Comparison equality follows the protocol/d' "$decision" >"$missing_protocol_aware_equality"
+if validate_trial_contract "$missing_protocol_aware_equality" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol-agnostic model and tool equality claims" >&2
+  exit 1
+fi
+
 reversed_invalid_rule="$trial_dir/reversed-invalid-rule.md"
 sed 's/Any invalid protocol-v2 pair prevents/Any invalid protocol-v2 pair permits/' "$decision" >"$reversed_invalid_rule"
 if validate_trial_contract "$reversed_invalid_rule" >/dev/null 2>&1; then
@@ -323,6 +388,76 @@ missing_v3_keep_rule="$trial_dir/missing-v3-keep-rule.md"
 sed '/`KEEP` is available under protocol v3 only after at least two valid/d' "$decision" >"$missing_v3_keep_rule"
 if validate_protocol_v3_contract "$missing_v3_keep_rule" >/dev/null 2>&1; then
   echo "Goalrail intent trial accepted a missing protocol-v3 KEEP threshold" >&2
+  exit 1
+fi
+
+missing_v4_launcher_bound="$trial_dir/missing-v4-launcher-bound.md"
+sed '/`LAUNCHER_BOUND`: the exact Codex CLI version/d' "$decision" >"$missing_v4_launcher_bound"
+if validate_protocol_v4_contract "$missing_v4_launcher_bound" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v4 without launcher-bound controls" >&2
+  exit 1
+fi
+
+missing_v4_backend_limit="$trial_dir/missing-v4-backend-limit.md"
+sed '/Protocol v4 may compare behavior under equal requested-and-accepted/d' "$decision" >"$missing_v4_backend_limit"
+if validate_protocol_v4_contract "$missing_v4_backend_limit" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v4 with unbounded backend claims" >&2
+  exit 1
+fi
+
+missing_v4_direct_launch="$trial_dir/missing-v4-direct-launch.md"
+sed '/both preflight receipts match, run each fresh ephemeral task/d' "$decision" >"$missing_v4_direct_launch"
+if validate_protocol_v4_contract "$missing_v4_direct_launch" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v4 with an implicit split bootstrap" >&2
+  exit 1
+fi
+
+missing_v4_exact_command="$trial_dir/missing-v4-exact-command.md"
+sed '/The native launch contract must use one exact/d' "$decision" >"$missing_v4_exact_command"
+if validate_protocol_v4_contract "$missing_v4_exact_command" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v4 without one exact command template" >&2
+  exit 1
+fi
+
+weakened_v4_network="$trial_dir/weakened-v4-network.md"
+sed 's/^disabled, web search disabled/enabled, web search disabled/' "$decision" >"$weakened_v4_network"
+if validate_protocol_v4_contract "$weakened_v4_network" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v4 with workspace network enabled" >&2
+  exit 1
+fi
+
+weakened_v4_writable_roots="$trial_dir/weakened-v4-writable-roots.md"
+sed 's/no additional writable roots/additional writable roots/' "$decision" >"$weakened_v4_writable_roots"
+if validate_protocol_v4_contract "$weakened_v4_writable_roots" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v4 with extra writable roots" >&2
+  exit 1
+fi
+
+weakened_v4_dynamic_tools="$trial_dir/weakened-v4-dynamic-tools.md"
+sed 's/web search disabled, apps disabled, multi-agent tools disabled/web search enabled, apps enabled, multi-agent tools enabled/' "$decision" >"$weakened_v4_dynamic_tools"
+if validate_protocol_v4_contract "$weakened_v4_dynamic_tools" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v4 with dynamic external tools enabled" >&2
+  exit 1
+fi
+
+missing_v4_seed_boundary="$trial_dir/missing-v4-seed-boundary.md"
+sed '/must contain no project Codex configuration that can vary the pair/d' "$decision" >"$missing_v4_seed_boundary"
+if validate_protocol_v4_contract "$missing_v4_seed_boundary" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v4 without the project-config seed boundary" >&2
+  exit 1
+fi
+
+missing_v4_non_authority="$trial_dir/missing-v4-non-authority.md"
+sed '/Neither `LAUNCHER_BOUND` nor `INSTRUCTED_AND_OBSERVED` grants authority./d' "$decision" >"$missing_v4_non_authority"
+if validate_protocol_v4_contract "$missing_v4_non_authority" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted launcher controls as authority" >&2
+  exit 1
+fi
+
+missing_v4_keep_rule="$trial_dir/missing-v4-keep-rule.md"
+sed '/`KEEP` is available under protocol v4 only if both remaining attempts/d' "$decision" >"$missing_v4_keep_rule"
+if validate_protocol_v4_contract "$missing_v4_keep_rule" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted a missing protocol-v4 KEEP threshold" >&2
   exit 1
 fi
 
@@ -403,4 +538,18 @@ if validate_protocol_v3_receipt "$missing_v3_no_launch_receipt" >/dev/null 2>&1;
   exit 1
 fi
 
-echo "GOALRAIL_INTENT_FIXTURE_CONTRACT_OK scope=structure-declared-boundary-independent-evaluator-observable-controls-representative-identifiers"
+missing_case_003_invalidity="$trial_dir/missing-case-003-invalidity.md"
+sed '/Terminal outcome: `INVALID_PRELAUNCH`/d' "$trials" >"$missing_case_003_invalidity"
+if validate_case_003_receipt "$missing_case_003_invalidity" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted missing case-003 invalidity evidence" >&2
+  exit 1
+fi
+
+missing_v4_no_launch_receipt="$trial_dir/missing-v4-no-launch-receipt.md"
+sed '/No v4 case, packet, writer, worktree, model invocation, or real-session/d' "$trials" >"$missing_v4_no_launch_receipt"
+if validate_protocol_v4_receipt "$missing_v4_no_launch_receipt" >/dev/null 2>&1; then
+  echo "Goalrail intent trial accepted protocol v4 without a no-launch receipt" >&2
+  exit 1
+fi
+
+echo "GOALRAIL_INTENT_FIXTURE_CONTRACT_OK scope=structure-declared-boundary-independent-evaluator-launcher-bound-observable-controls-representative-identifiers"

@@ -1,7 +1,7 @@
 # Decision 0017: Trial chat-native development intent
 
-- **Status:** isolated evaluation fixture; protocol v3 accepted for contract
-  work only, with case 003 pending separate owner approval
+- **Status:** isolated evaluation fixture; protocol v4 accepted for contract
+  work only after case 003 ended `INVALID_PRELAUNCH`; no v4 case is reserved
 - **Date:** 2026-08-17
 - **Owner:** project owner
 
@@ -111,10 +111,22 @@ or live pair execution. Case 003 requires separate owner approval. Cases 001
 and 002 remain immutable invalid receipts and must not be rerun or reinterpreted
 under protocol v3.
 
+After the owner separately approved case 003 launch, deployment preflight found
+that the frozen `codex exec --ephemeral` interface could not expose both fresh
+tasks' actual host values before releasing the byte-identical writer prompt
+into those same tasks. The pair ended `INVALID_PRELAUNCH`; no writer, worktree,
+model invocation, or repository work started. Case 003 consumed the third of
+five attempts, protocol v3 ended at `MODIFY`, and two attempts remain.
+
 Compare ordinary Codex behavior with behavior when the fixture is loaded from
 the same frozen starting state. Fixture availability is the only changed
-dimension in each pair: use the same exact model, effort, tools, permissions,
-budgets, acceptance checks, and attempt ceiling, and counterbalance execution
+dimension in each pair. Comparison equality follows the protocol's frozen
+evidence class: use actual model, effort, tool, and permission values only when
+the host exposes them and that protocol requires their readback. Under protocol
+v4, use the same exact requested-and-CLI-accepted model and effort identifiers,
+launcher security and tool-availability controls, observed tool invocations,
+budgets, acceptance checks, and attempt ceiling; never upgrade those receipts
+into actual backend or complete-inventory claims. Counterbalance execution
 order across the case set. Treat this as a feasibility canary, not a
 promotion-quality model ranking.
 
@@ -161,7 +173,10 @@ For each case, retain:
   to one visible criterion;
 - deterministic commands, forbidden-change checks, budgets, pair attempt
   ceiling, stop condition, and execution order;
-- verified actual model, effort, tools, permissions, fixture availability, and
+- model, effort, tools, and permissions according to the frozen protocol's
+  evidence class: actual readback only when the host exposes it, otherwise
+  exact requested-and-CLI-accepted settings plus observed tool invocations,
+  with every unexposed property labeled; also retain fixture availability and
   full-instruction activation evidence;
 - the preselected intent-quality signal, its deterministic evaluation rule,
   observed value and verdict, supporting evidence identity, and whether useful
@@ -257,6 +272,82 @@ fixture activation, independent acceptance, and a positive preselected
 intent-quality signal, with no protocol-v3 invalid pair or hard regression.
 No case starts automatically, and case 003 must use a new real task rather than
 weaken or replay the frozen case-002 packet.
+
+### Protocol v4: launcher-bound native execution
+
+The protocol-v4 decision question is whether to add an app-server or controller
+that can split task creation from prompt delivery, wait for a future host API,
+or narrow the experiment to controls that native non-interactive execution can
+actually bind. A controller would add the executor and authority surface this
+trial is intended to avoid. Waiting would preserve the stronger claim but
+produce no evidence. Select a launcher-bound native contract and explicitly
+drop claims that the host interface cannot expose.
+
+Protocol v4 is a distinct modified round using only the two attempts left after
+cases 001 through 003. Adopting this contract and its tests does not reserve a
+case, create a worktree or writer, invoke a model, or authorize live execution.
+A case requires separate packet-freeze and launch approvals. Earlier cases and
+their invalidity reasons remain immutable and contribute no v4 outcome
+evidence.
+
+Before packet freeze, classify every comparison dimension as one of:
+
+- `LAUNCHER_BOUND`: the exact Codex CLI version, complete argv and config
+  overrides, immutable artifact identities, repository seed, execution order,
+  and output schema are fixed before task creation. The launcher records the
+  requested model identifier and effort, but calls them
+  `REQUESTED_AND_CLI_ACCEPTED`, not actual backend identity.
+- `INSTRUCTED_AND_OBSERVED`: both writers receive the same visible process
+  limit and evaluator-owned JSONL or clock evidence measures compliance without
+  accepting writer self-assessment.
+- `UNSUPPORTED`: the required equality, authority boundary, or observation
+  cannot be established safely. An unsupported row prevents packet freeze.
+
+The native launch contract must use one exact `codex exec` command template for
+both variants, with only the worktree path varying. It must explicitly bind the
+model and effort, `approval_policy = "never"`, `sandbox_mode =
+"workspace-write"`, no additional writable roots, workspace-write network
+disabled, web search disabled, apps disabled, multi-agent tools disabled,
+restricted shell-environment inheritance, ignored user configuration,
+ephemeral execution, JSONL, and the frozen output schema. The frozen repository
+must contain no project Codex configuration that can vary the pair. Both seeds
+must prove that fixture availability is their only difference.
+
+The launcher performs deterministic preflight before either task starts. After
+both preflight receipts match, run each fresh ephemeral task directly with the
+byte-identical writer prompt; protocol v4 has no synthetic in-task bootstrap or
+resume phase. A native JSONL start event proves only that the CLI accepted and
+started that launch contract. It does not prove an immutable model snapshot,
+the provider's internal route, or the complete runtime tool inventory.
+
+Protocol v4 may compare behavior under equal requested-and-accepted native
+settings. It must not support a model ranking, effort ranking, snapshot-equality
+claim, complete-tool-inventory claim, or a security claim broader than the
+explicit native controls. A future case that requires any such claim is
+`UNSUPPORTED`, not repairable through prompt text or writer self-report.
+
+Neither `LAUNCHER_BOUND` nor `INSTRUCTED_AND_OBSERVED` grants authority. Exact
+CLI flags, a started task, skill instructions, or prompt text do not authorize
+credential use, private or sensitive reads, network or search access, external
+writes, sends, installation, configuration mutation, commit, push, release,
+publication, or deployment. Existing owner and project authority remains the
+only authority source; any such unapproved action is a hard regression.
+
+After each task, retain immutable JSONL and result identities, actual invoked
+tool events, elapsed time, exposed usage, tracked changes, fixture activation
+evidence, and evaluator outcomes. Missing or contradictory launch evidence,
+CLI rejection, an uncountable event stream, a second seed difference, a budget
+violation, private or sensitive access, or an unauthorized external action
+makes the pair `INVALID`, consumes the attempt, contributes no outcome evidence,
+and stops protocol v4 at `MODIFY`. Private access and unauthorized external
+action remain hard regressions.
+
+`KEEP` is available under protocol v4 only if both remaining attempts are valid
+`DECISION_BEARING` pairs with observed full fixture activation, independent
+acceptance, and positive preselected intent-quality signals, with no v4 invalid
+pair or hard regression. No case starts automatically. Case 004, if selected,
+must be frozen from a clean committed tree containing this protocol and must use
+a new evaluator packet rather than repair case 003.
 
 Do not infer a model-routing policy from this trial. A later controlled routing
 experiment must change exactly one model or effort dimension and satisfy the

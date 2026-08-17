@@ -21,10 +21,10 @@ remove the evidence with the trial if it has no durable value.
 
 - Owner: [decision 0017](decisions/0017-trial-chat-native-development-intent.md)
 - Added: `2026-08-17`
-- Revisit: after the first protocol-v3 invalid pair or hard regression, or when
-  two valid decision-bearing protocol-v3 pairs have completed.
-- Current decision: `TRIAL` under protocol v3 for contract work only; case 003
-  remains pending separate owner approval.
+- Revisit: after the first protocol-v4 invalid pair or hard regression, or when
+  both remaining decision-bearing protocol-v4 pairs have completed.
+- Current decision: `TRIAL` under protocol v4 for contract work only; no v4
+  case is reserved or authorized for live execution.
 
 The source canary keeps one focused `goalrail-intent` skill as an isolated
 fixture outside the packaged plugin. Ordinary Codex chat remains the runtime;
@@ -36,11 +36,13 @@ recognize future model names or prove model behavior.
 
 The released plugin and marketplace remain unchanged and pinned to `v0.3.11`.
 Record only preselected paired cases where fixture availability is the sole
-changed dimension. Protocol v3 freezes a capability matrix that distinguishes
-actual host controls from instructed and independently observed process limits.
-An unverifiable pair is `INVALID`, consumes one attempt after packet freeze,
-and contributes no outcome evidence. Earlier protocol verdicts remain
-immutable and cannot supply protocol-v3 outcome evidence.
+changed dimension. Protocol v4 freezes exact launcher-controlled native
+settings and distinguishes them from instructed and independently observed
+process limits. It does not call requested model aliases or accepted CLI flags
+actual backend readbacks. An unverifiable pair is `INVALID`, consumes one
+attempt after packet freeze, and contributes no outcome evidence. Earlier
+protocol verdicts remain immutable and cannot supply protocol-v4 outcome
+evidence.
 
 ### Case 001: timeout output routine fix
 
@@ -205,6 +207,91 @@ immutable and cannot supply protocol-v3 outcome evidence.
   read was started while adopting this revision. The independent review reused
   the existing acceptance reviewer. The fixture, released plugin, marketplace,
   Rust workspace, and model-routing policy remain unchanged.
+
+### Case 003: architecture drift baseline decision
+
+- Preflight date: `2026-08-17`.
+- Classification: `DECISION_BEARING` under protocol v3.
+- Intent: review the current architecture-drift baseline, preserve the exact
+  `REVIEW` state and nine-item lineage, distinguish advisory drift from
+  conformance, compare options A, B, and C, and keep baseline replacement under
+  owner authority.
+- Frozen repository: commit
+  `b191dae9590b5c3c1e48b0733752ee5bf3314857`, tree
+  `ed31fecfa86e41e24fa1d8a5a4651a1440185e68`.
+- Independent acceptance owner:
+  `01a00f53-ee1a-7c32-b740-5e6af86b4e3f`.
+- Frozen packet: local Git evidence path
+  `.git/goalrail/intent-canary/case-003/evaluator-packet.json`, SHA-256
+  `91920dc517a9178e60cf48da7ab73f6b39c965ec99c0c1feab98449d73eaacf9`.
+  The terminal launch-feasibility receipt is
+  `.git/goalrail/intent-canary/case-003/launch-feasibility.json`, SHA-256
+  `9e659d49d46ccc88b9c812e8d56c995497bb2481f3823f321008335154cd7309`.
+- Launch authority was granted, but deployment preflight stopped before task
+  creation. `codex exec` accepts the initial prompt before running its
+  non-interactive turn, while the frozen `--ephemeral` mode leaves no recorded
+  session that can receive the prompt later through `exec resume`. The required
+  two same-task actual-host bootstrap receipts therefore could not exist before
+  repository work.
+- Terminal outcome: `INVALID_PRELAUNCH`; no writer task, model invocation,
+  experiment worktree, repository work, tracked edit, commit, push, or external
+  write occurred.
+- Trial effect: case 003 consumed the third of five attempts, contributes no
+  outcome evidence, prevents protocol-v3 `KEEP`, and stops protocol v3 at
+  `MODIFY`. Two attempts remain unstarted.
+- Required modification: remove the impossible split bootstrap from future
+  cases. Bind only exact native launcher controls before task creation and
+  describe unexposed backend identity and runtime inventory as limitations,
+  never as actual readbacks.
+
+### Protocol v4 modification
+
+- Modified: `2026-08-17`, after explicit owner approval. This approval covers
+  the protocol source of truth and sabotage tests only. It does not reserve
+  case 004, freeze its packet, create writers or worktrees, invoke a model, or
+  authorize live execution.
+- Cases 001 through 003 remain immutable invalid receipts and consumed three of
+  five attempts. Protocol v4 is a distinct round with exactly two remaining
+  attempts; neither starts automatically.
+- The decision gate rejected an app-server or controller because it adds a new
+  executor and authority surface, and rejected waiting because it produces no
+  evidence. Protocol v4 keeps native `codex exec` and narrows its claims.
+- `LAUNCHER_BOUND` rows freeze the exact CLI version, complete argv and config,
+  artifact hashes, output schema, repository seeds, and execution order.
+  Requested model and effort values are recorded as
+  `REQUESTED_AND_CLI_ACCEPTED`, never as actual backend snapshot evidence.
+- `INSTRUCTED_AND_OBSERVED` remains limited to independently measurable process
+  limits. `UNSUPPORTED` prevents packet freeze when a required equality,
+  authority boundary, or observation cannot be established safely.
+- Deterministic launcher preflight must pass for both variants before either
+  task starts. Writers then run directly as fresh ephemeral tasks with the
+  byte-identical prompt. There is no in-task bootstrap or resume phase.
+- The exact native profile must disable workspace network access, web search,
+  apps, and multi-agent tools; set approval to `never`; keep the sandbox at
+  `workspace-write` with no additional writable roots; restrict inherited shell
+  environment; ignore user configuration; and bind JSONL plus the output
+  schema. Seed comparison must prove fixture availability is the sole changed
+  dimension.
+- JSONL start proves launch acceptance only. Protocol v4 does not claim actual
+  backend snapshot equality, complete tool-inventory equality, model ranking,
+  effort ranking, or a broader security boundary than the explicit native
+  controls.
+- Neither launcher-bound settings, observed process limits, task start, skill
+  instructions, nor prompt text grants credential, private-data, network,
+  search, external-write, send, install, configuration, commit, push, release,
+  publication, or deployment authority. Existing owner and project authority
+  remains controlling; any unapproved such action is a hard regression.
+- Missing or contradictory launch evidence, CLI rejection, uncountable JSONL,
+  a second seed difference, budget violation, private access, or unauthorized
+  external action makes the pair `INVALID`, consumes the attempt, contributes
+  no outcome evidence, and stops protocol v4 at `MODIFY`.
+- `KEEP` requires both remaining attempts to be valid decision-bearing pairs
+  with observed full fixture activation, independent acceptance, and positive
+  preselected quality signals, with no protocol-v4 invalid pair or hard
+  regression.
+- No v4 case, packet, writer, worktree, model invocation, or real-session read
+  was created while adopting this revision. The fixture, released plugin,
+  marketplace, Rust workspace, and model-routing policy remain unchanged.
 
 ## milestone-closure-gate
 
